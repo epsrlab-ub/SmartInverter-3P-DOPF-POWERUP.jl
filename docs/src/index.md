@@ -40,7 +40,7 @@ All three are exact, reproducing the curve rather than approximating it, and on 
 bundled case study they return the same dispatch to within solver tolerance. They differ
 in the solver technology they demand and in how they scale with inverters × time steps.
 
-The [Tutorial](@ref "Modeling Smart Inverters in Distribution Optimal Power Flow") derives all
+The [Tutorial](@ref "Modeling Smart Inverters in Three-Phase Distribution Optimal Power Flow") derives all
 three, verifies that every optimised operating point lands on the curve, and compares
 them side by side.
 
