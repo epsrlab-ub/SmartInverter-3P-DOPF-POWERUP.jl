@@ -1,0 +1,177 @@
+{
+    "Vmin_limit": 0.95,
+    "qshape": [
+        1,
+        1,
+        0,
+        0,
+        -1,
+        -1
+    ],
+    "Sbase_kVA": 100,
+    "n_steps": 96,
+    "loads_per_phase": [
+        4,
+        5,
+        9
+    ],
+    "name": "network_5_Feeder_2",
+    "n_bus": 194,
+    "Vmax_limit": 1.05,
+    "classes": [
+        {
+            "name": "A — 3 kW",
+            "S_kVA": 3.3000000000000003,
+            "qbar_pu": 0.033,
+            "P_kW": 3
+        },
+        {
+            "name": "B — 5 kW",
+            "S_kVA": 5.5,
+            "qbar_pu": 0.055,
+            "P_kW": 5
+        },
+        {
+            "name": "C — 8 kW",
+            "S_kVA": 8.8,
+            "qbar_pu": 0.088,
+            "P_kW": 8
+        },
+        {
+            "name": "D — 12 kW",
+            "S_kVA": 13.200000000000001,
+            "qbar_pu": 0.132,
+            "P_kW": 12
+        }
+    ],
+    "Vbase_V": 240.17771198288432,
+    "load_kW_total": 17.358,
+    "n_load": 18,
+    "Zbase_ohm": 0.5768533333333333,
+    "Vbp": [
+        0.88,
+        0.9,
+        0.97,
+        1.0,
+        1.02,
+        1.1
+    ],
+    "length_m": 488.59931100000017,
+    "load_kW_per_phase": [
+        3.7379999999999995,
+        5.958,
+        7.661999999999999
+    ],
+    "sites": [
+        {
+            "S_kVA": 3.3,
+            "class": "A — 3 kW",
+            "phase": 1,
+            "Z_ohm": 0.17681993974868426,
+            "bus": "184",
+            "class_idx": 1,
+            "P_kW": 3
+        },
+        {
+            "S_kVA": 5.500000000000001,
+            "class": "B — 5 kW",
+            "phase": 1,
+            "Z_ohm": 0.06137438407473154,
+            "bus": "74",
+            "class_idx": 2,
+            "P_kW": 5
+        },
+        {
+            "S_kVA": 8.8,
+            "class": "C — 8 kW",
+            "phase": 1,
+            "Z_ohm": 0.06137438407473154,
+            "bus": "73",
+            "class_idx": 3,
+            "P_kW": 8
+        },
+        {
+            "S_kVA": 13.2,
+            "class": "D — 12 kW",
+            "phase": 1,
+            "Z_ohm": 0.03670736624474795,
+            "bus": "45",
+            "class_idx": 4,
+            "P_kW": 12
+        },
+        {
+            "S_kVA": 5.500000000000001,
+            "class": "B — 5 kW",
+            "phase": 2,
+            "Z_ohm": 0.18494254748143155,
+            "bus": "188",
+            "class_idx": 2,
+            "P_kW": 5
+        },
+        {
+            "S_kVA": 8.8,
+            "class": "C — 8 kW",
+            "phase": 2,
+            "Z_ohm": 0.1260659696194618,
+            "bus": "157",
+            "class_idx": 3,
+            "P_kW": 8
+        },
+        {
+            "S_kVA": 13.2,
+            "class": "D — 12 kW",
+            "phase": 2,
+            "Z_ohm": 0.12047066890522323,
+            "bus": "153",
+            "class_idx": 4,
+            "P_kW": 12
+        },
+        {
+            "S_kVA": 3.3,
+            "class": "A — 3 kW",
+            "phase": 2,
+            "Z_ohm": 0.11944087205124497,
+            "bus": "145",
+            "class_idx": 1,
+            "P_kW": 3
+        },
+        {
+            "S_kVA": 8.8,
+            "class": "C — 8 kW",
+            "phase": 3,
+            "Z_ohm": 0.19077254988105727,
+            "bus": "193",
+            "class_idx": 3,
+            "P_kW": 8
+        },
+        {
+            "S_kVA": 13.2,
+            "class": "D — 12 kW",
+            "phase": 3,
+            "Z_ohm": 0.1651349549266762,
+            "bus": "179",
+            "class_idx": 4,
+            "P_kW": 12
+        },
+        {
+            "S_kVA": 3.3,
+            "class": "A — 3 kW",
+            "phase": 3,
+            "Z_ohm": 0.11523480825670929,
+            "bus": "142",
+            "class_idx": 1,
+            "P_kW": 3
+        },
+        {
+            "S_kVA": 5.500000000000001,
+            "class": "B — 5 kW",
+            "phase": 3,
+            "Z_ohm": 0.11515707906439422,
+            "bus": "149",
+            "class_idx": 2,
+            "P_kW": 5
+        }
+    ],
+    "PV_kW_total": 84,
+    "n_line": 193
+}
