@@ -2,9 +2,10 @@ using Documenter
 using SmartInverterDOPF
 
 # The tutorial is built from precomputed results committed under
-# docs/src/assets/results/, so no optimisation solver is needed here: the example
-# blocks only read JSON and draw figures. Regenerate those results with
-#     julia --project=scripts scripts/generate_results.jl
+# docs/src/assets/results/threephase/, so no optimisation solver is needed here: the
+# example blocks only read JSON and draw figures. Regenerate those results with
+#     julia --project=examples/three_phase examples/three_phase/generate_results.jl
+#     julia --project=examples/three_phase examples/three_phase/scalability.jl
 ENV["GKSwstype"] = "100"          # headless GR backend
 
 DocMeta.setdocmeta!(SmartInverterDOPF, :DocTestSetup,
@@ -12,7 +13,7 @@ DocMeta.setdocmeta!(SmartInverterDOPF, :DocTestSetup,
 
 makedocs(
     modules  = [SmartInverterDOPF],
-    sitename = "SmartInverterDOPF.jl",
+    sitename = "SmartInverter-3P-DOPF.jl",
     authors  = "Rahmat Emami Mirak",
     repo     = Remotes.GitHub("epsrlab-ub", "SmartInverter-3P-DOPF.jl"),
     # run @example blocks with docs/src as the working directory, so they can read
