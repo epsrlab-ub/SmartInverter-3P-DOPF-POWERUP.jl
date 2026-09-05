@@ -24,7 +24,7 @@ makedocs(
         canonical   = "https://epsrlab-ub.github.io/SmartInverter-3P-DOPF.jl",
         mathengine  = Documenter.KaTeX(),
         sidebar_sitename = false,
-        assets      = String[],
+        assets      = String["assets/custom.css"],
     ),
     pages = [
         "Home" => "index.md",

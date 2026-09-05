@@ -1,0 +1,14 @@
+/* Wide display equations get their own horizontal scroll instead of being clipped.
+   Documenter's theme sets no overflow on .katex-display, so on a narrow viewport the
+   longest equations on the tutorial page (the inverter model, the linearised power
+   balance, the Heaviside expansion) run past the content column.
+
+   overflow-y must be stated explicitly: setting only overflow-x makes the y axis
+   compute to auto, which adds a spurious vertical scrollbar on tall math such as the
+   3x3 coefficient matrix. The padding keeps the horizontal scrollbar clear of
+   subscripts and descenders. */
+.content .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.5em 0;
+}
