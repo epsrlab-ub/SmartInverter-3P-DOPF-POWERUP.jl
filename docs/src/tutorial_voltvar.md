@@ -465,28 +465,19 @@ inverter's reactive output to that voltage:
 On a three-phase network that interface needs one sentence of care, and it is the only
 place phases enter the droop at all. Take the bus set ``\Upsilon``, the phase set
 ``\Psi = \{a,b,c\}`` and the inverter fleet ``\mathcal{G}``. A rooftop inverter is a
-single-phase device connected line-to-neutral, so inverter ``i \in \mathcal{G}`` carries a
-bus ``n_i \in \Upsilon`` **and a phase** ``\varphi_i \in \Psi``, and the voltage it senses
-is that bus on that phase alone:
+single-phase device connected line-to-neutral, so inverter ``i \in \mathcal{G}`` has a
+bus ``b(i) \in \Upsilon`` **and a phase** ``\varphi(i) \in \Psi``, and the voltage it
+senses is that bus on that phase alone:
 
 ```math
-v_{n_i}^{\varphi_i}, \qquad n_i \in \Upsilon, \;\; \varphi_i \in \Psi,
-\;\; i \in \mathcal{G}
+v_i \;:=\; v_{b(i)}^{\varphi(i)},
+\qquad i \in \mathcal{G}
 ```
 
-That is the ``v_i`` of (1), named properly. The superscript is the whole of what three
-phases add to the droop, and it is carried explicitly through every equation below rather
-than hidden behind a shorthand.
-
-Each constraint in the three sections that follow relates that one scalar to that
-inverter's reactive output ``q_i^{G}``, bounded by its reactive capability
-``\bar q_i``. Note which symbols do and do not take the phase. ``v`` is a *network*
-variable living on ``\Upsilon \times \Psi``, so it needs a bus and a phase to be
-identified at all. The droop's own variables, introduced below, are *per inverter*: one
-device sits on one phase, so a phase index on them would be redundant, and writing
-``\lambda_{i,b}^{\varphi}`` would wrongly suggest a single inverter holds a separate set
-of weights per phase. The time index ``t \in \{1,\dots,T\}`` is suppressed throughout; on
-the case study ``T = 96``, a full day at 15-minute resolution.
+Every constraint in the three sections below is written in terms of this one scalar per
+inverter per time step, together with that inverter's reactive output ``q_i^{G}`` and its
+reactive capability ``\bar q_i``. The time index ``t \in \{1,\dots,T\}`` is suppressed
+throughout; on the case study ``T = 96``, a full day at 15-minute resolution.
 
 Two consequences are worth stating before the algebra starts, because they are what make
 the droop portable.
@@ -532,9 +523,9 @@ still *present* in the model, but it no longer restricts anything. One constant,
 buys you an if-statement.
 
 Everything below is written per inverter ``i \in \mathcal{G}``, and the voltage it reasons
-about is ``v_{n_i}^{\varphi_i}``, its own phase at its own bus. A fleet of twelve
-single-phase inverters spread over three phases therefore carries twelve independent
-copies of this system at every time step, each reading a different phase of the network.
+about is the one its own phase at its own bus, ``v_i = v_{b(i)}^{\varphi(i)}``. A fleet of
+twelve single-phase inverters spread over three phases therefore carries twelve
+independent copies of this system at every time step.
 
 **Step 1: exactly one segment is active.** Introduce a binary ``\delta_{i,b}`` for each of
 the five segments of inverter ``i`` and require
@@ -546,30 +537,32 @@ the five segments of inverter ``i`` and require
 
 **Step 2: each switch owns a voltage window.** If segment ``b`` is the active one, then
 the sensed voltage must lie in that segment's range ``[V^{\text{bp}}_{b},
-V^{\text{bp}}_{b+1}]``, which in big-M form is one two-sided inequality per segment,
+V^{\text{bp}}_{b+1}]``. Written once with the phase visible, so there is no doubt which
+voltage is meant,
 
 ```math
-V^{\text{bp}}_{b} - M(1-\delta_{i,b}) \;\le\; v_{n_i}^{\varphi_i}
-   \;\le\; V^{\text{bp}}_{b+1} + M(1-\delta_{i,b}) .
+V^{\text{bp}}_{b} - M(1-\delta_{i,b}) \;\le\; v_{b(i)}^{\varphi(i)}
+   \;\le\; V^{\text{bp}}_{b+1} + M(1-\delta_{i,b}),
 ```
 
-Writing all five out gives the complete window system:
+and in big-M form that is one two-sided inequality per segment. Writing all five out, with
+``v_i`` for ``v_{b(i)}^{\varphi(i)}`` from here on, gives the complete window system:
 
 ```math
 \begin{aligned}
--(1-\delta_{i,1})M + V^{l}\;\; &\le v_{n_i}^{\varphi_i} \le\;\; V^{\text{bp}}_{2} + (1-\delta_{i,1})M\\
--(1-\delta_{i,2})M + V^{\text{bp}}_{2} &\le v_{n_i}^{\varphi_i} \le\;\; V^{\text{bp}}_{3} + (1-\delta_{i,2})M\\
--(1-\delta_{i,3})M + V^{\text{bp}}_{3} &\le v_{n_i}^{\varphi_i} \le\;\; V^{\text{bp}}_{4} + (1-\delta_{i,3})M\\
--(1-\delta_{i,4})M + V^{\text{bp}}_{4} &\le v_{n_i}^{\varphi_i} \le\;\; V^{\text{bp}}_{5} + (1-\delta_{i,4})M\\
--(1-\delta_{i,5})M + V^{\text{bp}}_{5} &\le v_{n_i}^{\varphi_i} \le\;\; V^{u} + (1-\delta_{i,5})M
+-(1-\delta_{i,1})M + V^{l}\;\; &\le v_i \le\;\; V^{\text{bp}}_{2} + (1-\delta_{i,1})M\\
+-(1-\delta_{i,2})M + V^{\text{bp}}_{2} &\le v_i \le\;\; V^{\text{bp}}_{3} + (1-\delta_{i,2})M\\
+-(1-\delta_{i,3})M + V^{\text{bp}}_{3} &\le v_i \le\;\; V^{\text{bp}}_{4} + (1-\delta_{i,3})M\\
+-(1-\delta_{i,4})M + V^{\text{bp}}_{4} &\le v_i \le\;\; V^{\text{bp}}_{5} + (1-\delta_{i,4})M\\
+-(1-\delta_{i,5})M + V^{\text{bp}}_{5} &\le v_i \le\;\; V^{u} + (1-\delta_{i,5})M
 \end{aligned} \tag{3}
 ```
 
 Each row is vacuous when its ``\delta_{i,b} = 0`` and binding when ``\delta_{i,b} = 1``, so
 together with Step 1 the solver is forced to pick the segment that genuinely contains
-``v_{n_i}^{\varphi_i}``. Note the two outer rows: the first segment is bounded below by the voltage
+``v_i``. Note the two outer rows: the first segment is bounded below by the voltage
 variable's own lower bound ``V^{l}`` and the last above by ``V^{u}``, rather than by
-``V^{\text{bp}}_{1}`` and ``V^{\text{bp}}_{6}``. That keeps the model feasible if ``v_{n_i}^{\varphi_i}``
+``V^{\text{bp}}_{1}`` and ``V^{\text{bp}}_{6}``. That keeps the model feasible if ``v_i``
 ever sits outside the range the curve was drawn over; the saturated laws simply continue
 to apply.
 
@@ -580,9 +573,9 @@ the two sloped segments contribute their affine laws, written in slope-intercept
 
 ```math
 q_i^G \;=\; \delta_{i,1}\,\bar q_i
-\;+\; \delta_{i,2}\!\left(\alpha_{i,1} v_{n_i}^{\varphi_i} + \frac{\bar q_i V^{\text{bp}}_3}{V^{\text{bp}}_3 - V^{\text{bp}}_2}\right)
+\;+\; \delta_{i,2}\!\left(\alpha_{i,1} v_i + \frac{\bar q_i V^{\text{bp}}_3}{V^{\text{bp}}_3 - V^{\text{bp}}_2}\right)
 \;+\; \delta_{i,3}\cdot 0
-\;+\; \delta_{i,4}\!\left(\alpha_{i,2} v_{n_i}^{\varphi_i} + \frac{\bar q_i V^{\text{bp}}_4}{V^{\text{bp}}_5 - V^{\text{bp}}_4}\right)
+\;+\; \delta_{i,4}\!\left(\alpha_{i,2} v_i + \frac{\bar q_i V^{\text{bp}}_4}{V^{\text{bp}}_5 - V^{\text{bp}}_4}\right)
 \;+\; \delta_{i,5}\left(-\bar q_i\right) \tag{4}
 ```
 
@@ -596,8 +589,8 @@ one bracket survives and ``q_i^G`` takes that segment's value. But it is **not l
 Multiply the two sloped brackets out and the offending terms appear:
 
 ```math
-\underbrace{\delta_{i,2}\,\alpha_{i,1} v_{n_i}^{\varphi_i}}_{\text{bilinear}} \qquad\text{and}\qquad
-\underbrace{\delta_{i,4}\,\alpha_{i,2} v_{n_i}^{\varphi_i}}_{\text{bilinear}}
+\underbrace{\delta_{i,2}\,\alpha_{i,1} v_i}_{\text{bilinear}} \qquad\text{and}\qquad
+\underbrace{\delta_{i,4}\,\alpha_{i,2} v_i}_{\text{bilinear}}
 ```
 
 Each is a **product of two decision variables**: one binary, one continuous. Everything
@@ -606,34 +599,34 @@ Big-M formulation reduces to these two products, and if they can be removed the 
 becomes a plain MILP.
 
 **Step 4: remove the two products, exactly.** The saving grace is that ``\delta_{i,b}`` is
-binary rather than merely continuous, and ``v_{n_i}^{\varphi_i}`` is bounded. Under those two conditions
-each product can be replaced by a new continuous variable ``W_{i,b} := \delta_{i,b} v_{n_i}^{\varphi_i}``
+binary rather than merely continuous, and ``v_i`` is bounded. Under those two conditions
+each product can be replaced by a new continuous variable ``W_{i,b} := \delta_{i,b} v_i``
 and four linear inequalities, with **no approximation whatsoever**:
 
 ```math
--M(1-\delta_{i,b}) \;\le\; v_{n_i}^{\varphi_i} - W_{i,b} \;\le\; M(1-\delta_{i,b}), \qquad
+-M(1-\delta_{i,b}) \;\le\; v_i - W_{i,b} \;\le\; M(1-\delta_{i,b}), \qquad
 V^{\text{bp}}_{b}\,\delta_{i,b} \;\le\; W_{i,b} \;\le\; V^{\text{bp}}_{b+1}\,\delta_{i,b} . \tag{5}
 ```
 
 Check the two cases and the exactness is immediate. If ``\delta_{i,b} = 1``, the left pair
-forces ``W_{i,b} = v_{n_i}^{\varphi_i}`` and the right pair confines ``v_{n_i}^{\varphi_i}`` to the segment. If
+forces ``W_{i,b} = v_i`` and the right pair confines ``v_i`` to the segment. If
 ``\delta_{i,b} = 0``, the right pair forces ``W_{i,b} = 0`` (both bounds collapse to zero)
-while the left pair goes slack. Either way ``W_{i,b}`` equals ``\delta_{i,b} v_{n_i}^{\varphi_i}`` exactly:
+while the left pair goes slack. Either way ``W_{i,b}`` equals ``\delta_{i,b} v_i`` exactly:
 this is a reformulation, not a relaxation.
 
 Only segments 2 and 4 need this treatment, and for those the ``W_{i,b}`` bounds already pin
-``v_{n_i}^{\varphi_i}`` into the segment, so their Step-2 window rows are replaced rather than added to.
+``v_i`` into the segment, so their Step-2 window rows are replaced rather than added to.
 The complete constraint system for the Big-M droop is therefore:
 
 ```math
 \begin{aligned}
--(1-\delta_{i,1})M + V^{l}\;\; &\le v_{n_i}^{\varphi_i} \le\; V^{\text{bp}}_{2} + (1-\delta_{i,1})M\\[2pt]
--M(1-\delta_{i,2}) \;&\le\; v_{n_i}^{\varphi_i} - W_{i,2} \;\le\; (1-\delta_{i,2})M\\
+-(1-\delta_{i,1})M + V^{l}\;\; &\le v_i \le\; V^{\text{bp}}_{2} + (1-\delta_{i,1})M\\[2pt]
+-M(1-\delta_{i,2}) \;&\le\; v_i - W_{i,2} \;\le\; (1-\delta_{i,2})M\\
 V^{\text{bp}}_{2}\,\delta_{i,2} \;&\le\; W_{i,2} \;\le\; V^{\text{bp}}_{3}\,\delta_{i,2}\\[2pt]
--(1-\delta_{i,3})M + V^{\text{bp}}_{3} &\le v_{n_i}^{\varphi_i} \le\; V^{\text{bp}}_{4} + (1-\delta_{i,3})M\\[2pt]
--M(1-\delta_{i,4}) \;&\le\; v_{n_i}^{\varphi_i} - W_{i,4} \;\le\; (1-\delta_{i,4})M\\
+-(1-\delta_{i,3})M + V^{\text{bp}}_{3} &\le v_i \le\; V^{\text{bp}}_{4} + (1-\delta_{i,3})M\\[2pt]
+-M(1-\delta_{i,4}) \;&\le\; v_i - W_{i,4} \;\le\; (1-\delta_{i,4})M\\
 V^{\text{bp}}_{4}\,\delta_{i,4} \;&\le\; W_{i,4} \;\le\; V^{\text{bp}}_{5}\,\delta_{i,4}\\[2pt]
--(1-\delta_{i,5})M + V^{\text{bp}}_{5} &\le v_{n_i}^{\varphi_i} \le\; V^{u} + (1-\delta_{i,5})M
+-(1-\delta_{i,5})M + V^{\text{bp}}_{5} &\le v_i \le\; V^{u} + (1-\delta_{i,5})M
 \end{aligned} \tag{6}
 ```
 
@@ -641,7 +634,7 @@ Read alongside the Step-2 system, the change is visible: rows 2 and 4, the slope
 segments, have each become a ``W`` definition plus a ``W`` range, while the three flat
 segments keep their original windows unchanged.
 
-Now substitute ``\delta_{i,2} v_{n_i}^{\varphi_i} \to W_{i,2}`` and ``\delta_{i,4} v_{n_i}^{\varphi_i} \to W_{i,4}`` in the
+Now substitute ``\delta_{i,2} v_i \to W_{i,2}`` and ``\delta_{i,4} v_i \to W_{i,4}`` in the
 Step 3 expression. Nothing else changes, and the droop law becomes a single **linear**
 equation in which every coefficient is a constant:
 
@@ -719,18 +712,23 @@ the case distinction at all. It uses a fact about piecewise-linear curves: **eve
 on the curve is a weighted average of two adjacent breakpoints**, and nothing else is.
 
 So attach a weight ``\lambda_{i,b} \ge 0`` to each of the six breakpoints of inverter
-``i``, make the weights sum to one, and build *both* coordinates from the same weights,
-the sensed voltage on the left of the first and the reactive output on the left of the
-second:
+``i``, make the weights sum to one, and build *both* coordinates from the same weights.
+Written once with the phase visible,
 
 ```math
-v_{n_i}^{\varphi_i} = \sum_{b=1}^{6}\lambda_{i,b} V^{\text{bp}}_b, \qquad
+v_{b(i)}^{\varphi(i)} = \sum_{b=1}^{6}\lambda_{i,b} V^{\text{bp}}_b,
+```
+
+and then, with ``v_i`` for that same quantity,
+
+```math
+v_i = \sum_{b=1}^{6}\lambda_{i,b} V^{\text{bp}}_b, \qquad
 q_i^G = \sum_{b=1}^{6}\lambda_{i,b}\, q^{\text{bp}}_{i,b}, \qquad
 \sum_{b=1}^{6}\lambda_{i,b} = 1, \qquad \lambda_{i,b} \ge 0 . \tag{8}
 ```
 
 The single shared ``\lambda`` is the whole trick. Because one set of weights generates
-the voltage *and* the reactive power, the pair ``(v_{n_i}^{\varphi_i}, q_i^G)`` cannot drift off the
+the voltage *and* the reactive power, the pair ``(v_i, q_i^G)`` cannot drift off the
 curve: move the weights and both coordinates slide together along it. Both
 ``V^{\text{bp}}_b`` and the ordinates ``q^{\text{bp}}_{i,b} = \bar q_i\,(q/\bar q)_b`` are
 constants, so these are ordinary linear constraints, and no ``M`` needs choosing anywhere.
@@ -777,7 +775,7 @@ Collecting everything, the complete Lambda droop model is:
 
 ```math
 \begin{aligned}
-v_{n_i}^{\varphi_i} &= \sum_{b=1}^{6}\lambda_{i,b} V^{\text{bp}}_b\\
+v_i &= \sum_{b=1}^{6}\lambda_{i,b} V^{\text{bp}}_b\\
 q_i^G &= \sum_{b=1}^{6}\lambda_{i,b}\, q^{\text{bp}}_{i,b}\\
 \sum_{b=1}^{6}\lambda_{i,b} &= 1, \qquad \lambda_{i,b} \ge 0\\
 \lambda_{i,1} \le z_{i,1}, \quad \lambda_{i,b} &\le z_{i,b-1} + z_{i,b} \;\;(b=2,\dots,5), \quad \lambda_{i,6} \le z_{i,5}\\
@@ -825,7 +823,7 @@ only one place. Make them decision variables, so the DOPF chooses the curve as w
 the dispatch, and exactly one product turns bilinear:
 
 ```math
-v_{n_i}^{\varphi_i} = \sum_{b=1}^{6}\lambda_{i,b} V^{\text{bp}}_b \tag{11}
+v_i = \sum_{b=1}^{6}\lambda_{i,b} V^{\text{bp}}_b \tag{11}
 ```
 
 A single, well-understood bilinear term, routinely handled by a McCormick envelope and
@@ -877,11 +875,11 @@ Shift it to flip at a breakpoint and subtract two of them, and you get a **windo
 equals 1 on one segment and 0 everywhere else:
 
 ```math
-\mathcal{W}_{i,b} \;=\; H\!\left(v_{n_i}^{\varphi_i} - V^{\text{bp}}_{b}\right) - H\!\left(v_{n_i}^{\varphi_i} - V^{\text{bp}}_{b+1}\right),
-\qquad i \in \mathcal{G} \tag{13}
+\mathcal{W}_{i,b} \;=\; H\!\left(v_i - V^{\text{bp}}_{b}\right) - H\!\left(v_i - V^{\text{bp}}_{b+1}\right),
+\qquad v_i = v_{b(i)}^{\varphi(i)} \tag{13}
 ```
 
-which is precisely the condition ``V^{\text{bp}}_b \le v_{n_i}^{\varphi_i} \le V^{\text{bp}}_{b+1}``: the
+which is precisely the condition ``V^{\text{bp}}_b \le v_i \le V^{\text{bp}}_{b+1}``: the
 if-else of segment ``b``, written without logic and without binaries. Multiply each
 segment's law by its own window and add them up. The windows are disjoint, so at any
 voltage all but one vanish and the sum collapses to the single active law.
@@ -891,11 +889,11 @@ structure is visible:
 
 ```math
 \begin{aligned}
-q_i^G \;=\; &\;\;\;\;\bar q_i \big[\,H(v_{n_i}^{\varphi_i} - V^{\text{bp}}_1) - H(v_{n_i}^{\varphi_i} - V^{\text{bp}}_2)\,\big] \;+\\
-&\;\alpha_{i,1}\!\left(v_{n_i}^{\varphi_i} - V^{\text{bp}}_3\right)\big[\,H(v_{n_i}^{\varphi_i} - V^{\text{bp}}_2) - H(v_{n_i}^{\varphi_i} - V^{\text{bp}}_3)\,\big] \;+\\
-&\;\;\;\;0\,\big[\,H(v_{n_i}^{\varphi_i} - V^{\text{bp}}_3) - H(v_{n_i}^{\varphi_i} - V^{\text{bp}}_4)\,\big] \;+\\
-&\;\alpha_{i,2}\!\left(v_{n_i}^{\varphi_i} - V^{\text{bp}}_4\right)\big[\,H(v_{n_i}^{\varphi_i} - V^{\text{bp}}_4) - H(v_{n_i}^{\varphi_i} - V^{\text{bp}}_5)\,\big] \;-\\
-&\;\;\;\;\bar q_i \big[\,H(v_{n_i}^{\varphi_i} - V^{\text{bp}}_5) - H(v_{n_i}^{\varphi_i} - V^{\text{bp}}_6)\,\big]
+q_i^G \;=\; &\;\;\;\;\bar q_i \big[\,H(v_i - V^{\text{bp}}_1) - H(v_i - V^{\text{bp}}_2)\,\big] \;+\\
+&\;\alpha_{i,1}\!\left(v_i - V^{\text{bp}}_3\right)\big[\,H(v_i - V^{\text{bp}}_2) - H(v_i - V^{\text{bp}}_3)\,\big] \;+\\
+&\;\;\;\;0\,\big[\,H(v_i - V^{\text{bp}}_3) - H(v_i - V^{\text{bp}}_4)\,\big] \;+\\
+&\;\alpha_{i,2}\!\left(v_i - V^{\text{bp}}_4\right)\big[\,H(v_i - V^{\text{bp}}_4) - H(v_i - V^{\text{bp}}_5)\,\big] \;-\\
+&\;\;\;\;\bar q_i \big[\,H(v_i - V^{\text{bp}}_5) - H(v_i - V^{\text{bp}}_6)\,\big]
 \end{aligned}
 \qquad \forall i \in \mathcal{G} \tag{14}
 ```
@@ -910,7 +908,7 @@ being identically zero, it is dropped in the implementation.
 
 !!! tip "Anchor each sloped term at its zero crossing"
     This is the one place where it is easy to get the algebra wrong, so it is worth
-    stating explicitly. A sloped term is written ``\alpha(v_{n_i}^{\varphi_i} - V^{\ast})`` where
+    stating explicitly. A sloped term is written ``\alpha(v_i - V^{\ast})`` where
     ``V^{\ast}`` is the voltage at which *that segment's* reactive output passes through
     zero, namely ``V^{\text{bp}}_3`` for segment 2 and ``V^{\text{bp}}_4`` for segment 4.
 
@@ -963,7 +961,7 @@ same feeder, the same fleet and the same objective.
 ### The inverter model, shared by both hosts
 
 Everything that is *shared* between the two hosts is stated once here. Inverter ``i`` sits
-at bus ``n_i`` on phase ``\varphi_i``, carries an array whose available output
+at bus ``b(i)`` on phase ``\varphi(i)``, carries an array whose available output
 ``\bar p_i(t)`` follows the irradiance profile, and an inverter rated ``S_i^{\max}``:
 
 ```math
@@ -972,7 +970,7 @@ p_i^{G} &\le \bar p_i(t) & &\text{irradiance ceiling}\\
 p_i^{\mathrm{curt}} &= \bar p_i(t) - p_i^{G} \;\ge\; 0 & &\text{curtailment}\\
 \cos\theta_l\; p_i^{G} + \sin\theta_l\; q_i^{G} &\in [-S_i^{\max},\, S_i^{\max}],
    \quad \theta_l = \tfrac{l\pi}{16},\; l = 1,\dots,16 & &\text{capability polygon}\\
-q_i^{G} &= q_i\!\left(v_{n_i}^{\varphi_i}\right) & &\text{the droop}\\[2pt]
+q_i^{G} &= q_i\!\left(v_{b(i)}^{\varphi(i)}\right) & &\text{the droop}\\[2pt]
 \min \; & \textstyle\sum_{i \in \mathcal{G}} \sum_{t} p_i^{\mathrm{curt}} & &\text{objective}
 \end{aligned} \tag{15}
 ```
@@ -992,7 +990,7 @@ Lambda/SOS2 or Heaviside. That is precisely the point of the whole page: the opt
 cannot buy voltage support by choosing reactive power freely, it can only choose active
 power and live with the reactive response the curve produces at whatever voltage results.
 
-**The one scalar the host must supply.** ``v_{n_i}^{\varphi_i}`` is the entire interface
+**The one scalar the host must supply.** ``v_{b(i)}^{\varphi(i)}`` is the entire interface
 between the two halves of the model. Everything the two hosts below disagree about reduces
 to what they predict for that number.
 
@@ -1427,20 +1425,20 @@ This is the check that matters. Each encoding is exact only if every one of the
 Every table on this page that reports a **max droop deviation** reports the same
 quantity. Let ``q_i(\cdot)`` be the IEEE 1547 curve of (1), scaled by inverter ``i``'s
 reactive capability ``\bar q_i``; let ``q_i^{G}(t)`` be the reactive power the solver
-actually dispatched; and let ``v_{n_i}^{\varphi_i}(t)`` be the terminal voltage
+actually dispatched; and let ``v_i(t) = v_{b(i)}^{\varphi(i)}(t)`` be the terminal voltage
 that inverter senses, on its own phase. The deviation is the largest gap between the two,
 over every inverter and every time step:
 
 ```math
 \Delta \;=\; \max_{i \in \mathcal{G},\; t}
-   \Big\lvert\, q_i^{G}(t) \;-\; q_i\big(v_{n_i}^{\varphi_i}(t)\big) \,\Big\rvert \tag{30}
+   \Big\lvert\, q_i^{G}(t) \;-\; q_i\big(v_i(t)\big) \,\Big\rvert \tag{30}
 ```
 
 It is zero exactly when every dispatch point lies on the curve, so it is the number that
-decides whether an encoding is exact. Which voltage is substituted for ``v_{n_i}^{\varphi_i}(t)`` changes
+decides whether an encoding is exact. Which voltage is substituted for ``v_i(t)`` changes
 what (30) measures, and the two readings are reported separately throughout:
 
-| ``v_{n_i}^{\varphi_i}(t)`` taken from | what ``\Delta`` then measures |
+| ``v_i(t)`` taken from | what ``\Delta`` then measures |
 |:--|:--|
 | the host's own solution | **exactness of the encoding**: does the dispatch satisfy the curve inside the model? |
 | an exact three-phase AC power flow on the same dispatch | **accuracy of the host**: would the real inverter have produced that VAr output? |
