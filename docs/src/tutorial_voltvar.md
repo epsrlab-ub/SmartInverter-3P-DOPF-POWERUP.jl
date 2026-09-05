@@ -455,7 +455,7 @@ inverter's reactive output to that voltage:
         │       three-phase DOPF     │
         │  network model + limits    │
         └───────┬────────────▲───────┘
-      exposes   │ v_b^φ q_i^G│ sets
+  exposes v_b^φ │            │ q_i^G sets
         ┌───────▼────────────┴───────┐
         │      Q-V droop module      │
         │   the IEEE 1547 curve      │
