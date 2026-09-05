@@ -82,7 +82,7 @@ solve_dopf(case, Gurobi.Optimizer; method = :lambda, warm_start = :lindistflow)
 
 ```julia
 using Pkg
-Pkg.add(url = "https://github.com/ra-emami/SmartInverterDOPF.jl")
+Pkg.add(url = "https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl")
 Pkg.add(["Gurobi", "Ipopt"])                    # solvers
 Pkg.add(["JuMP", "JSON3", "Plots", "Printf"])   # modelling, case files, figures, tables
 ```
@@ -109,7 +109,7 @@ set.
 If this material is useful in your work, please cite this repository:
 
 > *SmartInverterDOPF.jl: Modeling Smart Inverters in Distribution Optimal Power Flow.*
-> <https://github.com/ra-emami/SmartInverterDOPF.jl>
+> <https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl>
 
 and, alongside it, the papers it builds on, listed in the tutorial's
 [References](@ref) section.

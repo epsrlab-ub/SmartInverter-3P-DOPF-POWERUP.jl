@@ -25,7 +25,7 @@
 #  *true* nonlinear relations rather than against the approximation.
 #
 #  Equation numbers in the comments below are the tutorial's:
-#  https://ra-emami.github.io/SmartInverterDOPF.jl/dev/tutorial_voltvar/#Three-phase-IVACOPF:-the-near-exact-host
+#  https://epsrlab-ub.github.io/SmartInverter-3P-DOPF.jl/dev/tutorial_voltvar/#Three-phase-IVACOPF:-the-near-exact-host
 #
 #  Run:   julia --project=. IVACOPF3Ph_Lambda.jl
 # =====================================================================================

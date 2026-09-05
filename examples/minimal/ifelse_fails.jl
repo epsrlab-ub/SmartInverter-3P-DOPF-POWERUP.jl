@@ -5,7 +5,7 @@
 #  That is the whole example: no network, no OPF, no data, nothing to download but JuMP.
 #
 #  Tutorial:
-#  https://ra-emami.github.io/SmartInverterDOPF.jl/dev/tutorial_voltvar/
+#  https://epsrlab-ub.github.io/SmartInverter-3P-DOPF.jl/dev/tutorial_voltvar/
 #
 #  Run:  julia --project=. -e "using Pkg; Pkg.instantiate()"
 #        julia --project=. ifelse_fails.jl

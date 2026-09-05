@@ -1,6 +1,6 @@
 # SmartInverterDOPF.jl
 
-[![Documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://ra-emami.github.io/SmartInverterDOPF.jl/dev/)
+[![Documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://epsrlab-ub.github.io/SmartInverter-3P-DOPF.jl/dev/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 Modeling Smart Inverters in Distribution Optimal Power Flow
@@ -14,7 +14,7 @@ runs each of them against four DOPF host models: two single-phase, two
 three-phase, linear and near-exact in each pair. The encodings agree; the hosts do not,
 and an exact AC power flow decides between them.
 
-**[Read the tutorial →](https://ra-emami.github.io/SmartInverterDOPF.jl/dev/tutorial_voltvar/)**
+**[Read the tutorial →](https://epsrlab-ub.github.io/SmartInverter-3P-DOPF.jl/dev/tutorial_voltvar/)**
 
 ## Prerequisites
 
@@ -57,7 +57,7 @@ so it has to be installed from its Git URL:
 
 ```julia
 using Pkg
-Pkg.add(url = "https://github.com/ra-emami/SmartInverterDOPF.jl")
+Pkg.add(url = "https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl")
 ```
 
 All the other packages are in the General registry, so they can be added by name:
@@ -155,7 +155,7 @@ Ipopt needs none of this. `Pkg.add("Ipopt")` is the whole installation.
 > is available, the `:heaviside` encoding needs only Ipopt and reaches the same answer.
 
 The tutorial's
-[Prerequisites](https://ra-emami.github.io/SmartInverterDOPF.jl/dev/tutorial_voltvar/#Prerequisites)
+[Prerequisites](https://epsrlab-ub.github.io/SmartInverter-3P-DOPF.jl/dev/tutorial_voltvar/#Prerequisites)
 section covers the same ground.
 
 ## Quick start

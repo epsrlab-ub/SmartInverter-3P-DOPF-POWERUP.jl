@@ -27,5 +27,5 @@ Each script prints the model size, the solve, the curtailed energy, the voltage 
 the check that matters: that every optimised operating point lies on the droop curve.
 
 The model itself lives in the package; these are thin wrappers around `solve_dopf`. See the
-[tutorial](https://ra-emami.github.io/SmartInverterDOPF.jl/dev/tutorial_voltvar/) for the
+[tutorial](https://epsrlab-ub.github.io/SmartInverter-3P-DOPF.jl/dev/tutorial_voltvar/) for the
 derivations, and [`../three_phase`](../three_phase) for the LinDist3Flow version.

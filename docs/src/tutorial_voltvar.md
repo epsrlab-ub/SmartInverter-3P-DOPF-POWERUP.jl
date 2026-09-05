@@ -245,7 +245,7 @@ so it has to be installed from its Git URL:
 
 ```julia
 using Pkg
-Pkg.add(url = "https://github.com/ra-emami/SmartInverterDOPF.jl")
+Pkg.add(url = "https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl")
 ```
 
 All the other packages are in the General registry, so they can be added by name:
@@ -1288,8 +1288,8 @@ fixed point for the given injections. It appears twice in the package:
 
 | function | what it does |
 |:--|:--|
-| [`base_case_voltages`](https://github.com/ra-emami/SmartInverterDOPF.jl/blob/main/src/dopf.jl) | the no-inverter reference case |
-| [`SmartInverterDOPF._sweep_state`](https://github.com/ra-emami/SmartInverterDOPF.jl/blob/main/src/dopf.jl) | expands a dispatch into a full complex state, used both to warm-start IVACOPF and to audit a solved dispatch |
+| [`base_case_voltages`](https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl/blob/main/src/dopf.jl) | the no-inverter reference case |
+| [`SmartInverterDOPF._sweep_state`](https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl/blob/main/src/dopf.jl) | expands a dispatch into a full complex state, used both to warm-start IVACOPF and to audit a solved dispatch |
 
 To run the audit yourself on any solved result:
 
@@ -1313,14 +1313,14 @@ count(<(case.Vmin), Vtrue) + count(>(case.Vmax), Vtrue)         # real limit vio
 
 `method` and `host` are independent, so there are six single-phase combinations. Each has
 a standalone script in
-[`examples/single_phase/`](https://github.com/ra-emami/SmartInverterDOPF.jl/tree/main/examples/single_phase):
+[`examples/single_phase/`](https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl/tree/main/examples/single_phase):
 
 **Table 8.** The six single-phase example scripts, one per host and encoding.
 
 | | Big-M | Lambda / SOS2 | Heaviside |
 |:--|:--|:--|:--|
-| **IVACOPF** | [`ivacopf_bigm.jl`](https://github.com/ra-emami/SmartInverterDOPF.jl/blob/main/examples/single_phase/ivacopf_bigm.jl) | [`ivacopf_lambda.jl`](https://github.com/ra-emami/SmartInverterDOPF.jl/blob/main/examples/single_phase/ivacopf_lambda.jl) | [`ivacopf_heaviside.jl`](https://github.com/ra-emami/SmartInverterDOPF.jl/blob/main/examples/single_phase/ivacopf_heaviside.jl) |
-| **LinDistFlow** | [`lindistflow_bigm.jl`](https://github.com/ra-emami/SmartInverterDOPF.jl/blob/main/examples/single_phase/lindistflow_bigm.jl) | [`lindistflow_lambda.jl`](https://github.com/ra-emami/SmartInverterDOPF.jl/blob/main/examples/single_phase/lindistflow_lambda.jl) | [`lindistflow_heaviside.jl`](https://github.com/ra-emami/SmartInverterDOPF.jl/blob/main/examples/single_phase/lindistflow_heaviside.jl) |
+| **IVACOPF** | [`ivacopf_bigm.jl`](https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl/blob/main/examples/single_phase/ivacopf_bigm.jl) | [`ivacopf_lambda.jl`](https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl/blob/main/examples/single_phase/ivacopf_lambda.jl) | [`ivacopf_heaviside.jl`](https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl/blob/main/examples/single_phase/ivacopf_heaviside.jl) |
+| **LinDistFlow** | [`lindistflow_bigm.jl`](https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl/blob/main/examples/single_phase/lindistflow_bigm.jl) | [`lindistflow_lambda.jl`](https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl/blob/main/examples/single_phase/lindistflow_lambda.jl) | [`lindistflow_heaviside.jl`](https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl/blob/main/examples/single_phase/lindistflow_heaviside.jl) |
 
 ```bash
 julia --project=examples/single_phase examples/single_phase/ivacopf_lambda.jl
@@ -2383,7 +2383,7 @@ further up says.
 ## Running the three-phase examples
 
 Every host × encoding pair has its own standalone script in
-[`examples/three_phase/`](https://github.com/ra-emami/SmartInverterDOPF.jl/tree/main/examples/three_phase).
+[`examples/three_phase/`](https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl/tree/main/examples/three_phase).
 All six share their skeleton verbatim (data, PV placement, verification, figures); a
 `diff` between any two shows only the droop block, or only the network model:
 
@@ -2391,8 +2391,8 @@ All six share their skeleton verbatim (data, PV placement, verification, figures
 
 | | Big-M | Lambda / SOS2 | Heaviside |
 |:--|:--|:--|:--|
-| **LinDist3Flow** | [`LinDist3Flow_BigM.jl`](https://github.com/ra-emami/SmartInverterDOPF.jl/blob/main/examples/three_phase/LinDist3Flow_BigM.jl) | [`LinDist3Flow_Lambda.jl`](https://github.com/ra-emami/SmartInverterDOPF.jl/blob/main/examples/three_phase/LinDist3Flow_Lambda.jl) | [`LinDist3Flow_Heaviside.jl`](https://github.com/ra-emami/SmartInverterDOPF.jl/blob/main/examples/three_phase/LinDist3Flow_Heaviside.jl) |
-| **IVACOPF** | [`IVACOPF3Ph_BigM.jl`](https://github.com/ra-emami/SmartInverterDOPF.jl/blob/main/examples/three_phase/IVACOPF3Ph_BigM.jl) | [`IVACOPF3Ph_Lambda.jl`](https://github.com/ra-emami/SmartInverterDOPF.jl/blob/main/examples/three_phase/IVACOPF3Ph_Lambda.jl) | [`IVACOPF3Ph_Heaviside.jl`](https://github.com/ra-emami/SmartInverterDOPF.jl/blob/main/examples/three_phase/IVACOPF3Ph_Heaviside.jl) |
+| **LinDist3Flow** | [`LinDist3Flow_BigM.jl`](https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl/blob/main/examples/three_phase/LinDist3Flow_BigM.jl) | [`LinDist3Flow_Lambda.jl`](https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl/blob/main/examples/three_phase/LinDist3Flow_Lambda.jl) | [`LinDist3Flow_Heaviside.jl`](https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl/blob/main/examples/three_phase/LinDist3Flow_Heaviside.jl) |
+| **IVACOPF** | [`IVACOPF3Ph_BigM.jl`](https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl/blob/main/examples/three_phase/IVACOPF3Ph_BigM.jl) | [`IVACOPF3Ph_Lambda.jl`](https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl/blob/main/examples/three_phase/IVACOPF3Ph_Lambda.jl) | [`IVACOPF3Ph_Heaviside.jl`](https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl/blob/main/examples/three_phase/IVACOPF3Ph_Heaviside.jl) |
 
 The Big-M and Lambda scripts need an MILP solver (Gurobi); the Heaviside ones need only
 Ipopt.

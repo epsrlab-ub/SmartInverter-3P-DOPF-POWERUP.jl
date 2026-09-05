@@ -32,7 +32,7 @@ julia --project=. scalability.jl                # the large-feeder sweep
 
 `generate_results.jl` runs all six scripts and writes
 `docs/src/assets/results/threephase/`, which is what the
-[three-phase section of the tutorial](https://ra-emami.github.io/SmartInverterDOPF.jl/dev/tutorial_voltvar/#Three-phases)
+[three-phase section of the tutorial](https://epsrlab-ub.github.io/SmartInverter-3P-DOPF.jl/dev/tutorial_voltvar/#Three-phases)
 is built from. `TP_HOSTS=ivacopf` or `TP_HOSTS=lindist3flow` regenerates one family only.
 
 The six scripts share their skeleton **verbatim**: data, PV placement, inverter

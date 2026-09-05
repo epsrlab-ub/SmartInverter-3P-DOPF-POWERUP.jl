@@ -14,13 +14,13 @@ makedocs(
     modules  = [SmartInverterDOPF],
     sitename = "SmartInverterDOPF.jl",
     authors  = "Rahmat Emami Mirak",
-    repo     = Remotes.GitHub("ra-emami", "SmartInverterDOPF.jl"),
+    repo     = Remotes.GitHub("epsrlab-ub", "SmartInverter-3P-DOPF.jl"),
     # run @example blocks with docs/src as the working directory, so they can read
     # assets/results/*.json by relative path
     workdir  = joinpath(@__DIR__, "src"),
     format = Documenter.HTML(
         prettyurls  = get(ENV, "CI", nothing) == "true",
-        canonical   = "https://ra-emami.github.io/SmartInverterDOPF.jl",
+        canonical   = "https://epsrlab-ub.github.io/SmartInverter-3P-DOPF.jl",
         mathengine  = Documenter.KaTeX(),
         sidebar_sitename = false,
         assets      = String[],
@@ -34,7 +34,7 @@ makedocs(
 )
 
 deploydocs(
-    repo      = "github.com/ra-emami/SmartInverterDOPF.jl.git",
+    repo      = "github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl.git",
     devbranch = "main",
     push_preview = false,
 )

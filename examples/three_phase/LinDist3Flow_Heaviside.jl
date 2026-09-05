@@ -19,7 +19,7 @@
 #  a voltage variable per inverter, so everything new here is in the network model.
 #
 #  Equation numbers in the comments below are the tutorial's:
-#  https://ra-emami.github.io/SmartInverterDOPF.jl/dev/tutorial_voltvar/#LinDist3Flow:-the-linear-host
+#  https://epsrlab-ub.github.io/SmartInverter-3P-DOPF.jl/dev/tutorial_voltvar/#LinDist3Flow:-the-linear-host
 #
 #  Run:   julia --project=. LinDist3Flow_Heaviside.jl
 # =====================================================================================

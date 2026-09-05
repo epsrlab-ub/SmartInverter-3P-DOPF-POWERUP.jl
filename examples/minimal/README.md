@@ -7,8 +7,8 @@ because it never gets as far as solving anything.
 ## Run it
 
 ```bash
-git clone https://github.com/ra-emami/SmartInverterDOPF.jl
-cd SmartInverterDOPF.jl/examples/minimal
+git clone https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl
+cd SmartInverter-3P-DOPF.jl/examples/minimal
 
 julia --project=. -e "using Pkg; Pkg.instantiate()"
 julia --project=. ifelse_fails.jl
@@ -69,4 +69,4 @@ them in this repository:
 
 All three return the same dispatch. See [`examples/single_phase`](../single_phase),
 [`examples/three_phase`](../three_phase), and the
-[tutorial](https://ra-emami.github.io/SmartInverterDOPF.jl/dev/tutorial_voltvar/).
+[tutorial](https://epsrlab-ub.github.io/SmartInverter-3P-DOPF.jl/dev/tutorial_voltvar/).
