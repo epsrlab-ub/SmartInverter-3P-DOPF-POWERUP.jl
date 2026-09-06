@@ -110,9 +110,22 @@ To get one, register at [gurobi.com](https://www.gurobi.com) and request a licen
 which is [free for academics](https://www.gurobi.com/academia/academic-program-and-licenses/),
 then follow Gurobi's
 [retrieval and setup instructions](https://support.gurobi.com/hc/en-us/articles/12872879801105-How-do-I-retrieve-and-set-up-a-Gurobi-license).
-What you do next depends on the licence type. A Web License Service (WLS) licence is a
-file you place in your home directory and nothing further is needed. A named-user licence
-is fetched with `grbgetkey`:
+What you do next depends on the licence type.
+
+A **Web License Service (WLS)** licence is a file named `gurobi.lic`, holding your
+`WLSACCESSID`, `WLSSECRET` and `LICENSEID`. Save it in your home directory and nothing
+further is needed:
+
+| | home directory | the file goes at |
+|:--|:--|:--|
+| Windows | `C:\Users\<you>`, that is `%USERPROFILE%` | `C:\Users\<you>\gurobi.lic` |
+| macOS | `/Users/<you>` | `~/gurobi.lic` |
+| Linux | `/home/<you>` | `~/gurobi.lic` |
+
+To keep it somewhere else, set the `GRB_LICENSE_FILE` environment variable to the file's
+full path and Gurobi will read it from there instead.
+
+A **named-user** licence is fetched with `grbgetkey`:
 
 ```julia
 using Pkg
