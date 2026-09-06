@@ -15,6 +15,8 @@ hosts do not.
 Every host and encoding pair is a standalone script:
 
 ```bash
+git clone https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl
+cd SmartInverter-3P-DOPF.jl
 julia --project=examples/three_phase -e 'using Pkg; Pkg.instantiate()'
 julia --project=examples/three_phase examples/three_phase/IVACOPF3Ph_Lambda.jl
 ```

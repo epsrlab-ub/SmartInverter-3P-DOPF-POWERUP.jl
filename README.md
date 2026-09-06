@@ -34,6 +34,17 @@ release. If you do not have Julia yet, install it with
 Alternatively, take an installer from
 [julialang.org/downloads](https://julialang.org/downloads/).
 
+### Get the code
+
+The six example scripts, both feeders, the load and irradiance profiles and the committed
+results all live in the repository, so the first step is to clone it. Every command below
+is run from the directory this creates:
+
+```bash
+git clone https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl
+cd SmartInverter-3P-DOPF.jl
+```
+
 ### Choosing an environment
 
 Julia installs packages into an *environment*, and a fresh environment starts out empty.
@@ -42,7 +53,7 @@ described by the `Project.toml` in the current directory.
 
 The three-phase example scripts are **standalone**: they carry their own `Project.toml`,
 they do not depend on this repository being installed as a package, and one command
-installs everything they need. From the repository root:
+installs everything they need:
 
 ```bash
 julia --project=examples/three_phase -e 'using Pkg; Pkg.instantiate()'
