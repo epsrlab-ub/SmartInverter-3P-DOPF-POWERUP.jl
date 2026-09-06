@@ -227,7 +227,7 @@ they do not depend on this repository being installed as a package, and one comm
 installs everything they need:
 
 ```bash
-julia --project=examples/three_phase -e 'using Pkg; Pkg.instantiate()'
+julia --project=examples/three_phase -e "using Pkg; Pkg.instantiate()"
 ```
 
 That is the whole setup. The sections below matter mainly when you are assembling an
