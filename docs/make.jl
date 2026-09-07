@@ -21,7 +21,7 @@ makedocs(
     workdir  = joinpath(@__DIR__, "src"),
     format = Documenter.HTML(
         prettyurls  = get(ENV, "CI", nothing) == "true",
-        canonical   = "https://epsrlab-ub.github.io/SmartInverter-3P-DOPF.jl",
+        canonical   = "https://epsrlab-ub.github.io/SmartInverter-3P-DOPF-POWERUP.jl",
         mathengine  = Documenter.KaTeX(),
         sidebar_sitename = false,
         assets      = String["assets/custom.css"],
