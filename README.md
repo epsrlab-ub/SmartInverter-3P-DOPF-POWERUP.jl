@@ -1,6 +1,6 @@
 # SmartInverter-3P-DOPF.jl
 
-[![Documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://epsrlab-ub.github.io/SmartInverter-3P-DOPF.jl/dev/)
+[![Documentation](https://img.shields.io/badge/docs-dev-blue.svg)](https://epsrlab-ub.github.io/SmartInverter-3P-DOPF-POWERUP.jl/dev/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 Modeling Smart Inverters in Three-Phase Distribution Optimal Power Flow
@@ -18,7 +18,7 @@ the dead-band and the other absorbing hard. This repository puts the curve insid
 unbalanced three-phase DOPF host models, one linear and one near-exact. The encodings
 agree; the hosts do not, and an exact three-phase AC power flow decides between them.
 
-**[Read the tutorial →](https://epsrlab-ub.github.io/SmartInverter-3P-DOPF.jl/dev/tutorial_voltvar/)**
+**[Read the tutorial →](https://epsrlab-ub.github.io/SmartInverter-3P-DOPF-POWERUP.jl/dev/tutorial_voltvar/)**
 
 ## Prerequisites
 
