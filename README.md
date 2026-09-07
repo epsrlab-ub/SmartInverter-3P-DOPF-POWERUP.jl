@@ -56,7 +56,7 @@ they do not depend on this repository being installed as a package, and one comm
 installs everything they need:
 
 ```bash
-julia --project=examples/three_phase -e 'using Pkg; Pkg.instantiate()'
+julia --project=examples/three_phase -e "using Pkg; Pkg.instantiate()"
 ```
 
 ### Packages
@@ -312,7 +312,7 @@ julia --project=examples/three_phase examples/three_phase/scalability.jl
 ## Building the documentation
 
 ```bash
-julia --project=docs -e 'using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()'
+julia --project=docs -e "using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()"
 julia --project=docs docs/make.jl
 ```
 
