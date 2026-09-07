@@ -361,77 +361,9 @@ then runs it autonomously as a local feedback law. An advanced distribution mana
 system (ADMS) can coordinate hundreds of these inverters through a DOPF, but only if
 that DOPF knows the law each one is following.
 
-Leave the curve out and the DOPF treats each inverter's reactive output as a free decision
-variable inside its apparent-power circle. It will pick whatever value minimises the
-objective. The inverter, meanwhile, is looking at its own terminal voltage and producing
-something else entirely. The dispatch is not merely suboptimal; it is not physically
-realisable.
-
-Put the curve in, and the feasible set shrinks to exactly the points the fleet can
-actually reach. As a bonus, once the curve is an algebraic object inside the model, its
-breakpoints can themselves become decision variables, which is how droop curves get
-optimised rather than merely respected.
-
-On an unbalanced feeder the argument is sharper still. The inverters on a low-voltage
-network are single-phase devices scattered across the three phases, and the phase they
-sit on decides the voltage they read. Two identically rated inverters can therefore sit on
-different segments of the same curve at the same instant, one idle in the dead-band and
-the other absorbing hard, purely because their phases sit at different voltages. A model
-that cannot tell the phases apart cannot predict what either of them will do; the spread
-between the three phases on the feeder used below is Figures 3 and 4.
-
-## The IEEE 1547 Volt-VAr law
-
-The characteristic specified in IEEE Std 1547-2018 [[1]](#ref-1) is piecewise linear in
-five segments, defined by six breakpoint voltages
-``V^{\text{bp}}_1 \le \dots \le V^{\text{bp}}_6`` and the reactive set-point at each. Writing
-``\bar q_i`` for the reactive capability of inverter ``i`` and ``v_i`` for the voltage it
-senses at its own terminal:
-
-```math
-q_i(v_i) \;=\;
-\begin{cases}
-\bar q_i, & V^{\text{bp}}_1 \le v_i \le V^{\text{bp}}_2 \quad\text{(full injection)}\\[4pt]
-\bar q_i \dfrac{V^{\text{bp}}_3 - v_i}{V^{\text{bp}}_3 - V^{\text{bp}}_2},
-        & V^{\text{bp}}_2 \le v_i \le V^{\text{bp}}_3 \quad\text{(sloped)}\\[6pt]
-0, & V^{\text{bp}}_3 \le v_i \le V^{\text{bp}}_4 \quad\text{(dead-band)}\\[4pt]
--\bar q_i \dfrac{v_i - V^{\text{bp}}_4}{V^{\text{bp}}_5 - V^{\text{bp}}_4},
-        & V^{\text{bp}}_4 \le v_i \le V^{\text{bp}}_5 \quad\text{(sloped)}\\[6pt]
--\bar q_i, & V^{\text{bp}}_5 \le v_i \le V^{\text{bp}}_6 \quad\text{(full absorption)}
-\end{cases} \tag{1}
-```
-
-Low voltage means inject reactive power to hold the voltage up; high voltage means
-absorb it. Between the two sits a dead-band in which the inverter does nothing, so that
-small fluctuations do not provoke needless reactive flow.
-
-```@example tut
-Vbp, qshape = collect(Float64, tpc.Vbp), collect(Float64, tpc.qshape)
-plot(Vbp, qshape, lw = 3, color = :steelblue, label = "IEEE 1547 Q-V droop",
-     xlabel = "terminal voltage  v  (p.u.)", ylabel = "q / q̄",
-     title = "The Volt-VAr characteristic", ylims = (-1.35, 1.35), legend = :topright)
-scatter!(Vbp, qshape, ms = 5, color = :steelblue, label = "breakpoints")
-vspan!([Vbp[3], Vbp[4]], color = :grey, alpha = 0.12, label = "dead-band")
-hline!([0], color = :black, lw = 0.6, alpha = 0.5, label = false)
-annotate!([(Vbp[1] + 0.007, 1.13, text("inject", 8, :left, :steelblue)),
-           (Vbp[6] - 0.007, -1.13, text("absorb", 8, :right, :steelblue))])
-```
-
-**Figure 1.** The IEEE 1547 Volt-VAr characteristic: a five-segment piecewise-linear law relating the inverter's own terminal voltage to its reactive output.
-
-The curve used throughout this tutorial is the package default: breakpoints inside the
-range the standard [[1]](#ref-1) permits the utility to set, and the values used in
-[[6]](#ref-6):
-
-**Table 1.** The IEEE 1547 Volt-VAr curve used throughout: six breakpoint voltages and the reactive output at each, normalised by the inverter's reactive capability ``\bar q``.
-
-```@example tut
-breakpoint_table()   # hide
-```
-
 ## Why an "if-else" cannot go straight into a solver
 
-The law above is a definition by cases, and that is exactly what a solver cannot read.
+The Volt-VAr law is a definition by cases, and that is exactly what a solver cannot read.
 Two distinct obstacles follow.
 
 **Conditional logic.** Which of the five expressions applies depends on ``v_i``, which is
@@ -503,32 +435,7 @@ inverter per time step, together with that inverter's reactive output ``q_i^{G}`
 reactive capability ``\bar q_i``. The time index ``t \in \{1,\dots,T\}`` is suppressed
 throughout; on the case study ``T = 96``, a full day at 15-minute resolution.
 
-Two consequences are worth stating before the algebra starts, because they are what make
-the droop portable.
 
-**The encodings do not know what a phase is.** Each asks the host for one scalar voltage
-variable and constrains one scalar reactive output against it. Whether that terminal is
-identified by a bus, or by a bus and a phase, changes the *subscript* and nothing else.
-That is why the same three blocks drop unchanged into either of the two hosts below: in
-LinDist3Flow ``v_b^{\varphi}`` is a decision variable directly, in the three-phase
-IVACOPF it is a linearised voltage magnitude, and the droop neither knows nor cares.
-
-**The counting does change.** A balanced single-phase study puts one inverter at a bus;
-an unbalanced LV feeder can put a single-phase inverter at every service connection, and
-the binaries in Big-M and Lambda scale with inverters × time steps. On the case study
-below, twelve inverters over 96 steps come to 5760 binaries. That is the arithmetic that
-eventually makes the integer-free encoding look attractive, and it is measured in
-[Does it scale?](@ref).
-
-In the JuMP snippets below, `PV` is the vector of inverter sites, each carrying a `bus`,
-a `phase` and a rating `Smax`; `v` is whatever voltage variable the host exposes, indexed
-by bus, phase and time step; and `vpv` is the sensing map written out:
-
-```julia
-vpv(i, t) = v[PV[i].bus, PV[i].phase, t]     # the voltage inverter i actually senses
-```
-
-The hosts themselves come after the three encodings.
 
 ## Method A — Big-M
 
@@ -982,41 +889,6 @@ Both are set out in full below, briefly, because the subject of this page is the
 rather than the network model, and both carry the three droop blocks just written, the
 same feeder, the same fleet and the same objective.
 
-### The inverter model, shared by both hosts
-
-Everything that is *shared* between the two hosts is stated once here. Inverter ``i`` sits
-at bus ``b(i)`` on phase ``\varphi(i)``, carries an array whose available output
-``\bar p_i(t)`` follows the irradiance profile, and an inverter rated ``S_i^{\max}``:
-
-```math
-\begin{aligned}
-p_i^{G} &\le \bar p_i(t) & &\text{irradiance ceiling}\\
-p_i^{\mathrm{curt}} &= \bar p_i(t) - p_i^{G} \;\ge\; 0 & &\text{curtailment}\\
-\cos\theta_l\; p_i^{G} + \sin\theta_l\; q_i^{G} &\in [-S_i^{\max},\, S_i^{\max}],
-   \quad \theta_l = \tfrac{l\pi}{16},\; l = 1,\dots,16 & &\text{capability polygon}\\
-q_i^{G} &= q_i\!\left(v_{b(i)}^{\varphi(i)}\right) & &\text{the droop}\\[2pt]
-\min \; & \textstyle\sum_{i \in \mathcal{G}} \sum_{t} p_i^{\mathrm{curt}} & &\text{objective}
-\end{aligned} \tag{15}
-```
-
-Three of those five lines are worth a sentence each.
-
-**The capability polygon.** The real constraint is
-``(p_i^{G})^2 + (q_i^{G})^2 \le (S_i^{\max})^2``, a circle: convex, but nonlinear, and a
-quadratic constraint would cost the model its MILP class. Following [[6]](#ref-6) it is
-replaced by an inscribed ``2k``-sided polygon, exactly ``2k`` linear constraints that
-tighten as ``k`` grows, with ``k = 16`` here for a 32-vertex polygon. Being *inscribed*, it
-is conservative: every point it admits is inside the real circle.
-
-**The droop, and what is not in the objective.** ``q_i^{G}`` never appears in the objective
-function. It is pinned entirely by the fourth line, the curve, encoded exactly by Big-M,
-Lambda/SOS2 or Heaviside. That is precisely the point of the whole page: the optimiser
-cannot buy voltage support by choosing reactive power freely, it can only choose active
-power and live with the reactive response the curve produces at whatever voltage results.
-
-**The one scalar the host must supply.** ``v_{b(i)}^{\varphi(i)}`` is the entire interface
-between the two halves of the model. Everything the two hosts below disagree about reduces
-to what they predict for that number.
 
 ### LinDist3Flow: the linear host
 
@@ -1095,37 +967,7 @@ with ``\Psi = \{a,b,c\}`` the phase set, ``\varphi`` and ``\psi`` phases within 
 *absent*: there is no current variable and no loss term. That is exactly what buys the
 linearity, and exactly what it costs.
 
-```julia
-# 3×3 drop coefficients, once per line
-const ALPHA = exp(-2π * im / 3)
-function drop_matrices(Z)                      # Z is 3×3, per unit
-    aR = zeros(3, 3); aX = zeros(3, 3)
-    for p in 1:3, q in 1:3
-        c = ALPHA^(p - q) * conj(Z[p, q])
-        aR[p, q] = 2 * real(c); aX[p, q] = -2 * imag(c)
-    end
-    return aR ./ (2 * VNOM), aX ./ (2 * VNOM)    # magnitude form
-end
 
-@variable(model, VLIM[1] <= v[1:nb, PHASES, 1:T] <= VLIM[2])   # voltage limits
-@constraint(model, [φ in PHASES, t in 1:T], v[islack, φ, t] == VNOM)
-
-# phase-coupled voltage drop
-@constraint(model, [k in 1:nbr, φ in PHASES, t in 1:T],
-    v[bus_id[BR[k].to], φ, t] == v[bus_id[BR[k].from], φ, t]
-        - sum(AR[k][φ, ψ] * P[k, ψ, t] + AX[k][φ, ψ] * Q[k, ψ, t] for ψ in PHASES))
-
-# power balance, per bus AND per phase; losses neglected
-@constraint(model, [b in 1:nb, φ in PHASES, t in 1:T],
-    netP[b, φ, t] == sum(P[k, φ, t] for k in out_br[b]; init = zero(AffExpr))
-                   - sum(P[k, φ, t] for k in in_br[b];  init = zero(AffExpr)))
-@constraint(model, [b in 1:nb, φ in PHASES, t in 1:T],
-    netQ[b, φ, t] == sum(Q[k, φ, t] for k in out_br[b]; init = zero(AffExpr))
-                   - sum(Q[k, φ, t] for k in in_br[b];  init = zero(AffExpr)))
-```
-
-where `netP`/`netQ` collect the substation injection, the inverters at that bus and phase,
-and the local load.
 
 ### Three-phase IVACOPF: the near-exact host
 
@@ -1312,72 +1154,7 @@ against the true relations is what makes the converged point a genuine power-flo
 rather than a solution of the approximation, and the audit further down confirms it
 independently.
 
-#### The three-phase IVACOPF host in Julia
 
-The whole host, with `_pr` marking a value carried over from the previous pass:
-
-```julia
-# ---- slack reference: 1∠0°, 1∠−120°, 1∠+120°, eq. (28) ---------------------------
-const V0 = ComplexF64[1, exp(-2π*im/3), exp(2π*im/3)]
-@constraint(model, [φ in PHASES, t in 1:T], v_r[islack, φ, t]  == real(V0[φ]))
-@constraint(model, [φ in PHASES, t in 1:T], v_im[islack, φ, t] == imag(V0[φ]))
-
-# ---- line current constraints, eq. (20): exact, linear, fully phase-coupled ---------
-@constraint(model, [k in 1:nbr, φ in PHASES, t in 1:T],
-    v_r[bus_id[BR[k].from], φ, t] - v_r[bus_id[BR[k].to], φ, t] ==
-        sum(Rm[k][φ,ψ] * Ibr_r[k,ψ,t] - Xm[k][φ,ψ] * Ibr_im[k,ψ,t] for ψ in PHASES))
-@constraint(model, [k in 1:nbr, φ in PHASES, t in 1:T],
-    v_im[bus_id[BR[k].from], φ, t] - v_im[bus_id[BR[k].to], φ, t] ==
-        sum(Rm[k][φ,ψ] * Ibr_im[k,ψ,t] + Xm[k][φ,ψ] * Ibr_r[k,ψ,t] for ψ in PHASES))
-
-# ---- bus current injection, eq. (21): KCL per bus and phase -------------------------
-@constraint(model, [b in 1:nb, φ in PHASES, t in 1:T],
-    Ibs_r[b,φ,t] == sum(Ibr_r[k,φ,t] for k in out_br[b]; init = zero(AffExpr))
-                  - sum(Ibr_r[k,φ,t] for k in in_br[b];  init = zero(AffExpr)))
-@constraint(model, [b in 1:nb, φ in PHASES, t in 1:T],
-    Ibs_im[b,φ,t] == sum(Ibr_im[k,φ,t] for k in out_br[b]; init = zero(AffExpr))
-                   - sum(Ibr_im[k,φ,t] for k in in_br[b];  init = zero(AffExpr)))
-
-# ---- power balance, eq. (22), linearised as eq. (23)–(24) ---------------------------
-Plin(b,φ,t) = v_r_pr[b,φ,t]  * Ibs_r[b,φ,t]  + Ibs_r_pr[b,φ,t]  * v_r[b,φ,t] +
-              v_im_pr[b,φ,t] * Ibs_im[b,φ,t] + Ibs_im_pr[b,φ,t] * v_im[b,φ,t] -
-              v_r_pr[b,φ,t]  * Ibs_r_pr[b,φ,t] - v_im_pr[b,φ,t] * Ibs_im_pr[b,φ,t]
-Qlin(b,φ,t) = v_im_pr[b,φ,t] * Ibs_r[b,φ,t]  + Ibs_r_pr[b,φ,t]  * v_im[b,φ,t] -
-              v_r_pr[b,φ,t]  * Ibs_im[b,φ,t] - Ibs_im_pr[b,φ,t] * v_r[b,φ,t] -
-              v_im_pr[b,φ,t] * Ibs_r_pr[b,φ,t] + v_r_pr[b,φ,t]  * Ibs_im_pr[b,φ,t]
-
-@constraint(model, [b in 1:nb, φ in PHASES, t in 1:T], netP[b,φ,t] == Plin(b,φ,t))
-@constraint(model, [b in 1:nb, φ in PHASES, t in 1:T], netQ[b,φ,t] == Qlin(b,φ,t))
-#                                                      ↑ where the droop meets the network
-
-# ---- voltage magnitude, eq. (25): this is the v the droop reads --------------------
-@constraint(model, [b in 1:nb, φ in PHASES, t in 1:T],
-    v[b,φ,t] == (v_r_pr[b,φ,t]  / hypot(v_r_pr[b,φ,t], v_im_pr[b,φ,t])) * v_r[b,φ,t]
-              + (v_im_pr[b,φ,t] / hypot(v_r_pr[b,φ,t], v_im_pr[b,φ,t])) * v_im[b,φ,t])
-
-# ---- thermal line limit, eq. (27), as a linear polygon inscribing the circle --------
-for l in 1:IMAX_SEG
-    θ = l * π / IMAX_SEG
-    @constraint(model, [k in 1:nbr, φ in PHASES, t in 1:T],
-        cos(θ) * Ibr_r[k,φ,t] + sin(θ) * Ibr_im[k,φ,t] <=  BR[k].imax)
-    @constraint(model, [k in 1:nbr, φ in PHASES, t in 1:T],
-        cos(θ) * Ibr_r[k,φ,t] + sin(θ) * Ibr_im[k,φ,t] >= -BR[k].imax)
-end
-```
-
-and the stop test, applied to the *exact* relations after each pass:
-
-```julia
-MAPB = maximum(abs(Vr[b,φ,t]*Ibs_r_v[b,φ,t] + Vi[b,φ,t]*Ibs_im_v[b,φ,t] - netP_v[b,φ,t])
-               for b in 1:nb, φ in PHASES, t in 1:T)
-MRPB = maximum(abs(Vi[b,φ,t]*Ibs_r_v[b,φ,t] - Vr[b,φ,t]*Ibs_im_v[b,φ,t] - netQ_v[b,φ,t])
-               for b in 1:nb, φ in PHASES, t in 1:T)
-MVM  = maximum(abs(hypot(Vr[b,φ,t], Vi[b,φ,t]) - V[b,φ,t])
-               for b in 1:nb, φ in PHASES, t in 1:T)
-
-v_r_pr .= Vr; v_im_pr .= Vi; Ibs_r_pr .= Ibs_r_v; Ibs_im_pr .= Ibs_im_v   # refresh ∘
-max(MAPB, MRPB, MVM) < TOL && break
-```
 
 #### Where the linearisation loop starts
 
@@ -1444,46 +1221,6 @@ balanced three-phase one.
 This is the check that matters. Each encoding is exact only if every one of the
 ``12 \times 96 = 1152`` optimised operating points lands on the droop, on both hosts.
 
-### The droop-deviation metric
-
-Every table on this page that reports a **max droop deviation** reports the same
-quantity. Let ``q_i(\cdot)`` be the IEEE 1547 curve of (1), scaled by inverter ``i``'s
-reactive capability ``\bar q_i``; let ``q_i^{G}(t)`` be the reactive power the solver
-actually dispatched; and let ``v_i(t) = v_{b(i)}^{\varphi(i)}(t)`` be the terminal voltage
-that inverter senses, on its own phase. The deviation is the largest gap between the two,
-over every inverter and every time step:
-
-```math
-\Delta \;=\; \max_{i \in \mathcal{G},\; t}
-   \Big\lvert\, q_i^{G}(t) \;-\; q_i\big(v_i(t)\big) \,\Big\rvert \tag{30}
-```
-
-It is zero exactly when every dispatch point lies on the curve, so it is the number that
-decides whether an encoding is exact. Which voltage is substituted for ``v_i(t)`` changes
-what (30) measures, and the two readings are reported separately throughout:
-
-| ``v_i(t)`` taken from | what ``\Delta`` then measures |
-|:--|:--|
-| the host's own solution | **exactness of the encoding**: does the dispatch satisfy the curve inside the model? |
-| an exact three-phase AC power flow on the same dispatch | **accuracy of the host**: would the real inverter have produced that VAr output? |
-
-In code, `droop_q` is (1) written out and the maximum is taken directly. Note the
-indexing of `V`: bus, **phase**, time step, which is the only place the three-phase
-network enters the check at all.
-
-```julia
-droop_q(v, qb) = v <= VBP[2] ? qb :                                        # flat, +q̄
-                 v <= VBP[3] ? qb * (VBP[3] - v) / (VBP[3] - VBP[2]) :     # sloped
-                 v <= VBP[4] ? 0.0 :                                       # dead-band
-                 v <= VBP[5] ? -qb * (v - VBP[4]) / (VBP[5] - VBP[4]) :    # sloped
-                               -qb                                          # flat, −q̄
-
-dev = maximum(abs(Qdg_v[i, t] - droop_q(V[PV[i].bus, PV[i].phase, t], PV[i].Smax))
-              for i in 1:npv, t in 1:T)
-```
-
-Reported values sit between ``10^{-17}`` and ``10^{-6}`` p.u.: solver tolerance, not
-model error. A value of ``10^{-3}`` or larger would mean the encoding had failed.
 
 ### Every point on its own curve
 
@@ -1775,37 +1512,6 @@ julia --project=examples/three_phase examples/three_phase/IVACOPF3Ph_Lambda.jl
 
 Each script prints its model size, the solve, the curtailed energy, the voltage range per
 phase and the droop-deviation check of (30), and writes its own figures alongside.
-
-## Takeaways
-
-**Embedding is a correctness requirement, not a refinement.** Smart inverters follow
-their curve, not a set-point; that is what IEEE Std 1547-2018 [[1]](#ref-1) obliges them
-to do. Only a droop-aware DOPF returns a dispatch the fleet will actually deliver.
-
-**Two exact families, one curve.** Integer encodings (Big-M, Lambda/SOS2) give an MILP;
-non-smooth algebra (Heaviside) gives an NLP. All three reproduce the curve to
-round-off and return the same dispatch. The choice is which solver world you want to
-work in.
-
-**The phase index is the whole of the three-phase difficulty, for the droop.** An
-inverter senses one scalar, the voltage of its own bus on its own phase, and every
-encoding above constrains one reactive output against that one scalar. What the phases
-change is the network model underneath and the size of the fleet on top, not the algebra
-of the curve. What they change decisively is the answer: on this feeder the three phases
-sit at visibly different voltages and drive their inverters onto different segments of the
-same curve at the same instant.
-
-**The host is a separate decision, and it is the one that decides accuracy.** All three
-encodings are exact *within* whatever model they sit in, linear or near-exact. What the
-model resembles is the host's business: on the unbalanced LV feeder here, LinDist3Flow and
-IVACOPF put the same inverters on the same curves and still disagree about the answer, and
-only the exact power flow settles which to believe. Pick the encoding for the solver you
-have; pick the host for the accuracy you need.
-
-**Scale picks the method.** Binaries multiply with inverters × time steps, which is what
-eventually breaks the MILP route on large fleets. The integer-free encoding avoids that
-but hands the difficulty to the NLP solver, where the non-smoothness shows up as degraded
-convergence and, on the largest feeder tried here, as a solve that does not finish at all.
 
 ## References
 
