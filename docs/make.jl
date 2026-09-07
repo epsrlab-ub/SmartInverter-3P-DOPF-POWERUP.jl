@@ -13,9 +13,9 @@ DocMeta.setdocmeta!(SmartInverterDOPF, :DocTestSetup,
 
 makedocs(
     modules  = [SmartInverterDOPF],
-    sitename = "SmartInverter-3P-DOPF.jl",
-    authors  = "Rahmat Emami Mirak",
-    repo     = Remotes.GitHub("epsrlab-ub", "SmartInverter-3P-DOPF.jl"),
+    sitename = "SmartInverter-3P-DOPF-POWERUP.jl",
+    authors  = "Adedoyin Inaolaji",
+    repo     = Remotes.GitHub("epsrlab-ub", "SmartInverter-3P-DOPF-POWERUP.jl"),
     # run @example blocks with docs/src as the working directory, so they can read
     # assets/results/*.json by relative path
     workdir  = joinpath(@__DIR__, "src"),
@@ -35,7 +35,7 @@ makedocs(
 )
 
 deploydocs(
-    repo      = "github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl.git",
+    repo      = "github.com/epsrlab-ub/SmartInverter-3P-DOPF-POWERUP.jl.git",
     devbranch = "main",
     push_preview = false,
 )
