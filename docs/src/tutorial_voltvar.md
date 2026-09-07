@@ -352,14 +352,6 @@ Ipopt needs none of this. `Pkg.add("Ipopt")` is the whole installation.
     Ipopt**, which is open source, and reaches the same answer. That is a practical
     reason to consider an integer-free formulation.
 
-## Why the curve has to be embedded in the DOPF
-
-IEEE 1547-2018 [[1]](#ref-1) requires every interconnecting distributed energy resource (DER) to be
-capable
-of Volt-VAr control. The utility enables the function and sets the curve; the inverter
-then runs it autonomously as a local feedback law. An advanced distribution management
-system (ADMS) can coordinate hundreds of these inverters through a DOPF, but only if
-that DOPF knows the law each one is following.
 
 ## Why an "if-else" cannot go straight into a solver
 
