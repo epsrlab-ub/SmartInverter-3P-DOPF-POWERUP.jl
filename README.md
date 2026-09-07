@@ -5,19 +5,6 @@
 
 Modeling Smart Inverters in Three-Phase Distribution Optimal Power Flow
 
-A smart inverter does not accept a reactive-power set-point. It follows a Volt-VAr
-curve, deciding from its own terminal voltage how much reactive power to inject or
-absorb. A distribution optimal power flow (DOPF) that ignores that curve returns a
-dispatch the inverter is never going to deliver.
-
-Real low-voltage feeders are unbalanced, and rooftop inverters are single-phase devices:
-the phase an inverter sits on decides the voltage it reads, so two identically rated
-inverters can sit on different segments of the same curve at the same instant, one idle in
-the dead-band and the other absorbing hard. This repository puts the curve inside a
-**three-phase** optimisation, three different ways, and runs each of them against two
-unbalanced three-phase DOPF host models, one linear and one near-exact. The encodings
-agree; the hosts do not, and an exact three-phase AC power flow decides between them.
-
 **[Read the tutorial →](https://epsrlab-ub.github.io/SmartInverter-3P-DOPF-POWERUP.jl/dev/tutorial_voltvar/)**
 
 ## Prerequisites
