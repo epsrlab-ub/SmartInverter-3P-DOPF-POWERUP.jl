@@ -1,14 +1,10 @@
 # Modeling Smart Inverters in Three-Phase Distribution Optimal Power Flow
 
-A smart inverter does not accept a reactive-power set-point as an input. Rather, it follows a Volt-VAr curve: it measures its own terminal voltage and decides, on its own, how much reactive power to inject or absorb. A distribution optimal power flow (DOPF) problem that ignores the curve will return a reactive dispatch that could be unsuitable at the local inverter controller level.
+A smart inverter follows a Volt-VAr curve where it measures its own terminal voltage and autonomously decides how much reactive power to inject or absorb. A distribution optimal power flow (DOPF) problem that ignores the curve will return a reactive dispatch that could be unsuitable at the local inverter controller level.
 
-Real low-voltage feeders are unbalanced. Loads and rooftop inverters connect between one phase and neutral, so the three phases carry different currents and sit at different voltages, and an inverter on phase *a* senses a different terminal voltage from its neighbour on phase *b* at the very same bus. This tutorial is three-phase throughout: every formulation, every host and every result below is written for an unbalanced multiphase network.
+This tutorial presents three ways to embed the Volt-VAr curve into a three-phase DOPF, so that every dispatch point the solver returns is one the inverter would actually produce. 
 
-It shows three ways to embed the Volt-VAr curve into a three-phase DOPF, so that every dispatch point the solver returns is one the inverter would actually produce. All three are exact formulations of the curve and, on the case study below, all three return the same answer. What separates them is the solver technology they demand and how they scale.
-
-To keep the separation between *encoding* and *network model* measurable rather than merely asserted, the three encodings are run against **two** three-phase hosts, a linear one and a near-exact one. Six runs, one curve, and an exact power flow to decide between the hosts.
-
-Both feeders used below are real Electricity North West low-voltage networks from the
+To keep the separation between *encoding* and *network model* measurable rather than merely asserted, the three encodings are run against **two** three-phase hosts, a linear one and a near-exact one. Both feeders used below are real Electricity North West low-voltage networks from the
 *Low Voltage Network Solutions* project, Kron-reduced to three wires: `network_5_Feeder_2`
 [[14]](#ref-14) for the case study and `network_17_Feeder_6` [[15]](#ref-15) for the
 scalability check. The Kron reduction follows [[16]](#ref-16), and the conductor impedances
@@ -189,10 +185,6 @@ end
 
 ## Prerequisites
 
-Everything on this page is Julia: the code blocks run in Julia, and the six example
-scripts in the repository are Julia programs. No prior Julia knowledge is assumed, but
-the environment has to be set up before any of it will run.
-
 ### Getting Julia
 
 This package requires **Julia 1.10 or newer**, and is tested on 1.10 and on the current
@@ -212,8 +204,8 @@ results all live in the repository, so the first step is to clone it. Every comm
 this page is run from the directory this creates:
 
 ```bash
-git clone https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl
-cd SmartInverter-3P-DOPF.jl
+git clone https://github.com/epsrlab-ub/SmartInverter-3P-DOPF-POWERUP.jl
+cd SmartInverter-3P-DOPF-POWERUP.jl
 ```
 
 ### Choosing an environment
@@ -230,40 +222,6 @@ installs everything they need:
 julia --project=examples/three_phase -e "using Pkg; Pkg.instantiate()"
 ```
 
-That is the whole setup. The sections below matter mainly when you are assembling an
-environment of your own.
-
-### Packages
-
-Every package the three-phase scripts use is in the General registry, Julia's default
-package catalogue, so it can be added by name:
-
-```julia
-using Pkg
-Pkg.add(["JuMP", "JSON3", "Plots"])              # modelling, data files, figures
-Pkg.add(["Printf", "LinearAlgebra"])             # standard library
-```
-
-| package | what it is for |
-|:--|:--|
-| `JuMP` | the modelling layer every formulation on this page is written in |
-| `JSON3` | reading the feeder, load and irradiance files, and the committed results |
-| `Plots` | every figure |
-| `Printf` | formatting the printed output and the tables |
-| `LinearAlgebra` | the 3×3 phase impedances that make the network model three-phase |
-
-The last two ship with Julia, but a project environment still has to add them before
-`using` will find them. Make sure all of this is installed in the same environment you
-run the code from. `Pkg.status()` lists what the active environment already has, and a
-`using` line that raises `ArgumentError: Package X not found` means `Pkg.add("X")` has
-not been run for it.
-
-If you also want the Julia package in `src/` (still named `SmartInverterDOPF`) rather than
-only the standalone scripts, it is not in the registry and installs from its Git URL:
-
-```julia
-Pkg.add(url = "https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl")
-```
 
 ### Solvers
 
@@ -342,16 +300,6 @@ optimize!(model)        # prints the licence banner, then reports OPTIMAL
 
 Ipopt needs none of this. `Pkg.add("Ipopt")` is the whole installation.
 
-!!! note "On open-source MILP solvers"
-    We also tried the open-source MILP solvers **HiGHS** and **GLPK** on this model.
-    Neither worked out. One returned an infeasible status inside the
-    successive-linearisation loop, the other was too slow to finish. The results
-    throughout this documentation are produced with Gurobi.
-
-    If no MILP solver is available at all, the Heaviside encoding needs **only
-    Ipopt**, which is open source, and reaches the same answer. That is a practical
-    reason to consider an integer-free formulation.
-
 
 ## Why an "if-else" cannot go straight into a solver
 
@@ -373,24 +321,6 @@ There are two ways out, and they define the rest of this tutorial:
 - **Write the logic in closed algebraic form** using step functions. The model stays
   integer-free but becomes non-smooth, so it needs an NLP solver. This is the Heaviside
   route.
-
-Before the details, here is the whole comparison on one screen. Each method answers a
-different question, and that choice determines everything else about it:
-
-**Table 2.** The three exact encodings of the droop at a glance.
-
-| | **Big-M** | **Lambda / SOS2** | **Heaviside** |
-|:--|:--|:--|:--|
-| the question it asks | *which segment is active?* | *which two breakpoints am I between?* | none; the algebra selects |
-| the device | one binary per segment, plus a large constant ``M`` | shared weights ``\lambda_b``, plus SOS2 adjacency | products of unit steps |
-| extra variables, per inverter per time step | 5 binary + 2 continuous | 5 binary + 6 continuous | **none** |
-| model class | MILP | MILP | NLP, non-smooth |
-| anything to tune? | yes, the value of ``M`` | no | no |
-| introduced in | [[5]](#ref-5) | [[6]](#ref-6), [[7]](#ref-7) | [[10]](#ref-10) |
-
-The three columns are three answers to one question: how do you say "it depends" to a
-solver? Each pays for exactness in a different currency: a constant you must choose,
-a combinatorial structure, or differentiability.
 
 ### The one scalar the droop needs from the network
 
