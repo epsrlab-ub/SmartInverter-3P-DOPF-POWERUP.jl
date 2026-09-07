@@ -41,8 +41,8 @@ results all live in the repository, so the first step is to clone it. Every comm
 is run from the directory this creates:
 
 ```bash
-git clone https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl
-cd SmartInverter-3P-DOPF.jl
+git clone https://github.com/epsrlab-ub/SmartInverter-3P-DOPF-POWERUP.jl
+cd SmartInverter-3P-DOPF-POWERUP.jl
 ```
 
 ### Choosing an environment
@@ -86,7 +86,7 @@ only the standalone scripts, it is not in the General registry and installs from
 URL:
 
 ```julia
-Pkg.add(url = "https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl")
+Pkg.add(url = "https://github.com/epsrlab-ub/SmartInverter-3P-DOPF-POWERUP.jl")
 ```
 
 ### Solvers
@@ -174,7 +174,7 @@ Ipopt needs none of this. `Pkg.add("Ipopt")` is the whole installation.
 > is available, the Heaviside encoding needs only Ipopt and reaches the same answer.
 
 The tutorial's
-[Prerequisites](https://epsrlab-ub.github.io/SmartInverter-3P-DOPF.jl/dev/tutorial_voltvar/#Prerequisites)
+[Prerequisites](https://epsrlab-ub.github.io/SmartInverter-3P-DOPF-POWERUP.jl/dev/tutorial_voltvar/#Prerequisites)
 section covers the same ground.
 
 ## Quick start
