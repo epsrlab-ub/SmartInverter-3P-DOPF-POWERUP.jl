@@ -8,10 +8,9 @@ because it never gets as far as solving anything.
 
 ```bash
 git clone https://github.com/epsrlab-ub/SmartInverter-3P-DOPF-POWERUP.jl
-cd SmartInverter-3P-DOPF-POWERUP.jl/examples/minimal
 
-julia --project=. -e "using Pkg; Pkg.instantiate()"
-julia --project=. ifelse_fails.jl
+
+julia --project=. examples\minimal\ifelse_fails.jl
 ```
 
 ## The code
