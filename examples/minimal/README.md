@@ -7,8 +7,8 @@ because it never gets as far as solving anything.
 ## Run it
 
 ```bash
-git clone https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl
-cd SmartInverter-3P-DOPF.jl/examples/minimal
+git clone https://github.com/epsrlab-ub/SmartInverter-3P-DOPF-POWERUP.jl
+cd SmartInverter-3P-DOPF-POWERUP.jl/examples/minimal
 
 julia --project=. -e "using Pkg; Pkg.instantiate()"
 julia --project=. ifelse_fails.jl
@@ -67,6 +67,6 @@ them in this repository:
 | **Lambda / SOS2** | the operating point is a blend of two adjacent breakpoints | MILP |
 | **Heaviside** | segment masks built from unit steps, no integers at all | NLP |
 
-All three return the same dispatch. See [`examples/single_phase`](../single_phase),
+All three return the same dispatch. See 
 [`examples/three_phase`](../three_phase), and the
-[tutorial](https://epsrlab-ub.github.io/SmartInverter-3P-DOPF.jl/dev/tutorial_voltvar/).
+[tutorial](https://epsrlab-ub.github.io/SmartInverter-3P-DOPF-POWERUP.jl/dev/tutorial_voltvar/).
