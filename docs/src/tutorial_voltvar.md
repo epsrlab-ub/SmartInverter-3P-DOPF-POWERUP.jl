@@ -972,45 +972,7 @@ curtailment** over the day.
 tp_class_table()   # hide
 ```
 
-```@example tut
-tp_pv_figure()   # hide
-```
-
-**Figure 2.** The PV resource across the twelve inverters over the day, and how much of it the droop-constrained dispatch delivers on the IVACOPF host. The gap between the two curves is the objective being minimised: 42.69 kWh of the 476.95 kWh available, or 8.95 %.
-
-Why does a curtailment objective have anything to do with voltage at all? Because the
-droop ties the two together. Active power injection raises the local voltage; the droop
-reads that voltage and sets reactive power accordingly; and reactive flow moves voltages
-across the whole feeder. The optimiser wants every kilowatt it can get; the droop
-decides what taking it costs everywhere else.
-
-The phases behave differently, which is the whole reason for modelling them separately:
-
-```@example tut
-tp_envelope_figure()   # hide
-```
-
-**Figure 3.** Voltage envelope by phase, LinDist3Flow host. The three phases do not coincide, which is the reason for modelling them separately.
-
-```@example tut
-tp_envelope_figure("lambda"; res = tpi, host = "IVACOPF")   # hide
-```
-
-**Figure 4.** Voltage envelope by phase, IVACOPF host.
-
-The spread between the phases is not a rounding artefact. The loads are split four, five
-and nine across them, so the phases carry different currents, sit at different voltages,
-and drive their inverters onto different segments of the same curve at the same instant.
-Three independent single-phase studies could not produce this picture, and neither could a
-balanced three-phase one.
-
 ## Verification: does the dispatch actually lie on the curve?
-
-This is the check that matters. Each encoding is exact only if every one of the
-``12 \times 96 = 1152`` optimised operating points lands on the droop, on both hosts.
-
-
-### Every point on its own curve
 
 The curves below are drawn in **absolute p.u. VArs** rather than normalised by
 ``\bar q_i``. Normalising would collapse the four size classes onto one line and hide the
