@@ -171,28 +171,6 @@ scatter!(
 )
 
 
-# -------------------------------------------------------------------------------------
-# Add guide lines for the participant's selected operating point
-# -------------------------------------------------------------------------------------
-
-plot!(
-    p,
-    [v, v],
-    [-1.0, q],
-    linestyle = :dash,
-    linewidth = 1.5,
-    label = "",
-)
-
-plot!(
-    p,
-    [VBP[1], v],
-    [q, q],
-    linestyle = :dash,
-    linewidth = 1.5,
-    label = "",
-)
-
 
 # -------------------------------------------------------------------------------------
 # Highlight the selected operating point
@@ -213,6 +191,12 @@ scatter!(
 # -------------------------------------------------------------------------------------
 
 display(p)
+
+
+println("\nThe highlighted point is the operating point corresponding to your voltage.")
+println("\nPress ENTER when you are finished viewing the plot.")
+
+readline()
 
 
 println("\nThe highlighted point is the operating point corresponding to your voltage.")
