@@ -2,13 +2,7 @@
 #  Why "if-else" cannot go straight into a solver
 #
 #  The IEEE 1547 Volt-VAr curve, written as a Julia `if`-`else` and handed to a solver.
-#  That is the whole example: no network, no OPF, no data, nothing to download but JuMP.
-#
-#  Tutorial:
-#  https://epsrlab-ub.github.io/SmartInverter-3P-DOPF.jl/dev/tutorial_voltvar/
-#
-#  Run:  julia --project=. -e "using Pkg; Pkg.instantiate()"
-#        julia --project=. ifelse_fails.jl
+
 # =====================================================================================
 
 using JuMP
@@ -31,7 +25,7 @@ end
 # On a number it is perfect. Nothing is wrong with this implementation of the curve.
 println("\n  q_droop(1.010) = ", q_droop(1.010), "   ← correct, on the steep segment\n")
 
-# Now ask a solver to pick the voltage instead of us.
+# Now ask a solver to pick the voltage instead.
 model = Model()
 @variable(model, 0.90 <= v <= 1.10)
 @variable(model, -QBAR <= q <= QBAR)
