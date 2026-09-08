@@ -314,6 +314,17 @@ constraint, and an algebraic constraint is the only thing a solver accepts.
 breakpoint. Newton and interior-point methods build their steps from derivatives, and at
 a kink the derivative does not exist.
 
+## Try it yourself
+
+Before moving to solver-compatible formulations, try the two minimal examples:
+
+1. [`ifelse_numericworks.jl`](https://github.com/epsrlab-ub/SmartInverter-3P-DOPF-POWERUP.jl/blob/main/examples/minimal/ifelse_numericworks.jl)  
+   See that the ordinary `if-else` Volt-VAr function works when voltage is a known numerical value.
+
+2. [`ifelse_variablefails.jl`](https://github.com/epsrlab-ub/SmartInverter-3P-DOPF-POWERUP.jl/blob/main/examples/minimal/ifelse_variablefails.jl)  
+   Then make voltage a JuMP decision variable and observe what happens when the same function is used in a constraint.
+
+
 There are two ways out, and they define the rest of this tutorial:
 
 - **Introduce integer variables** to encode the logic exactly. The model becomes an
