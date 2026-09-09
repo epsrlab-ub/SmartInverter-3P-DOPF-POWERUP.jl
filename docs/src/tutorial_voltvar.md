@@ -977,6 +977,47 @@ over a full day at 15-minute resolution, ``T = 96`` time steps. Bus voltages are
 ``[0.95, 1.05]`` p.u. on every phase, and the objective is to **minimise total PV
 curtailment** over the day.
 
+
+Every host × encoding pair has its own standalone script in
+[`examples/three_phase/`](https://github.com/epsrlab-ub/SmartInverter-3P-DOPF-POWERUP.jl/tree/main/examples/three_phase).
+All six share their skeleton verbatim (data, PV placement, verification, figures); a
+`diff` between any two shows only the droop block, or only the network model:
+
+**Table 11.** The six three-phase example scripts, one per host and encoding.
+
+| | Big-M | Lambda / SOS2 | Heaviside |
+|:--|:--|:--|:--|
+| **LinDist3Flow** | [`LinDist3Flow_BigM.jl`](https://github.com/epsrlab-ub/SmartInverter-3P-DOPF-POWERUP.jl/blob/main/examples/three_phase/LinDist3Flow_BigM.jl) | [`LinDist3Flow_Lambda.jl`](https://github.com/epsrlab-ub/SmartInverter-3P-DOPF-POWERUP.jl/blob/main/examples/three_phase/LinDist3Flow_Lambda.jl) | [`LinDist3Flow_Heaviside.jl`](https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl/blob/main/examples/three_phase/LinDist3Flow_Heaviside.jl) |
+| **IVACOPF** | [`IVACOPF3Ph_BigM.jl`](https://github.com/epsrlab-ub/SmartInverter-3P-DOPF-POWERUP.jl/blob/main/examples/three_phase/IVACOPF3Ph_BigM.jl) | [`IVACOPF3Ph_Lambda.jl`](https://github.com/epsrlab-ub/SmartInverter-3P-DOPF-POWERUP.jl/blob/main/examples/three_phase/IVACOPF3Ph_Lambda.jl) | [`IVACOPF3Ph_Heaviside.jl`](https://github.com/epsrlab-ub/SmartInverter-3P-DOPF-POWERUP.jl/blob/main/examples/three_phase/IVACOPF3Ph_Heaviside.jl) |
+
+The Big-M and Lambda scripts need an MILP solver (Gurobi); the Heaviside ones need only
+Ipopt.
+
+```bash
+julia --project=examples/three_phase examples/three_phase/IVACOPF3Ph_Lambda.jl
+```
+
+Each reads its feeder, horizon and fleet from the environment, so the same model runs on a
+different network without touching the code:
+
+**Table 12.** Environment overrides accepted by every three-phase script.
+
+| variable | default | meaning |
+|:--|:--|:--|
+| `TP_CASE` | `network_5_Feeder_2` | ENWL feeder to load: `network_5_Feeder_2` [[14]](#ref-14) or `network_17_Feeder_6` [[15]](#ref-15) |
+| `TP_STEPS` | `96` | time steps in the day |
+| `TP_NPV` | `4` | smart inverters per phase |
+| `TP_WARMSTART` | `sweep` | IVACOPF only: `flat` for the flat start of Soltani, Khorsand and Ma [[4]](#ref-4) |
+| `TP_TOL` | `1e-6` | IVACOPF only: stop tolerance on ``\max(\text{MAPB}, \text{MRPB}, \text{MVM})``, eq. (29) |
+| `TP_MAXITER` | `15` | IVACOPF only: pass limit |
+| `TP_IMAXSEG` | `0` | IVACOPF only: sides of the polygon enforcing (27); 0 disables it |
+
+```bash
+TP_CASE=network_17_Feeder_6 TP_STEPS=24 julia --project=examples/three_phase examples/three_phase/IVACOPF3Ph_Lambda.jl
+```
+
+
+
 **Table 4.** The four inverter size classes of the case study on `network_5_Feeder_2` [[14]](#ref-14). Because ``\bar q_i = S_i^{\max}``, each class follows a different droop curve.
 
 ```@example tut
@@ -1204,46 +1245,6 @@ at issue here, are identical in both hosts.
 The sweep runs one process per row, separately from the case study above, so its timings
 will not match that table to the second. Read both as orders of magnitude, as the warning
 further up says.
-
-## Running the three-phase examples
-
-Every host × encoding pair has its own standalone script in
-[`examples/three_phase/`](https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl/tree/main/examples/three_phase).
-All six share their skeleton verbatim (data, PV placement, verification, figures); a
-`diff` between any two shows only the droop block, or only the network model:
-
-**Table 11.** The six three-phase example scripts, one per host and encoding.
-
-| | Big-M | Lambda / SOS2 | Heaviside |
-|:--|:--|:--|:--|
-| **LinDist3Flow** | [`LinDist3Flow_BigM.jl`](https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl/blob/main/examples/three_phase/LinDist3Flow_BigM.jl) | [`LinDist3Flow_Lambda.jl`](https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl/blob/main/examples/three_phase/LinDist3Flow_Lambda.jl) | [`LinDist3Flow_Heaviside.jl`](https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl/blob/main/examples/three_phase/LinDist3Flow_Heaviside.jl) |
-| **IVACOPF** | [`IVACOPF3Ph_BigM.jl`](https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl/blob/main/examples/three_phase/IVACOPF3Ph_BigM.jl) | [`IVACOPF3Ph_Lambda.jl`](https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl/blob/main/examples/three_phase/IVACOPF3Ph_Lambda.jl) | [`IVACOPF3Ph_Heaviside.jl`](https://github.com/epsrlab-ub/SmartInverter-3P-DOPF.jl/blob/main/examples/three_phase/IVACOPF3Ph_Heaviside.jl) |
-
-The Big-M and Lambda scripts need an MILP solver (Gurobi); the Heaviside ones need only
-Ipopt.
-
-```bash
-julia --project=examples/three_phase examples/three_phase/IVACOPF3Ph_Lambda.jl
-```
-
-Each reads its feeder, horizon and fleet from the environment, so the same model runs on a
-different network without touching the code:
-
-**Table 12.** Environment overrides accepted by every three-phase script.
-
-| variable | default | meaning |
-|:--|:--|:--|
-| `TP_CASE` | `network_5_Feeder_2` | ENWL feeder to load: `network_5_Feeder_2` [[14]](#ref-14) or `network_17_Feeder_6` [[15]](#ref-15) |
-| `TP_STEPS` | `96` | time steps in the day |
-| `TP_NPV` | `4` | smart inverters per phase |
-| `TP_WARMSTART` | `sweep` | IVACOPF only: `flat` for the flat start of Soltani, Khorsand and Ma [[4]](#ref-4) |
-| `TP_TOL` | `1e-6` | IVACOPF only: stop tolerance on ``\max(\text{MAPB}, \text{MRPB}, \text{MVM})``, eq. (29) |
-| `TP_MAXITER` | `15` | IVACOPF only: pass limit |
-| `TP_IMAXSEG` | `0` | IVACOPF only: sides of the polygon enforcing (27); 0 disables it |
-
-```bash
-TP_CASE=network_17_Feeder_6 TP_STEPS=24 julia --project=examples/three_phase examples/three_phase/IVACOPF3Ph_Lambda.jl
-```
 
 
 ## Reproducing these results
