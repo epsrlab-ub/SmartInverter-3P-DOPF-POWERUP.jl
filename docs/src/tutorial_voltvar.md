@@ -1119,83 +1119,6 @@ every run.
 tp_audit_table()   # hide
 ```
 
-```@example tut
-tp_host_envelope_figure()   # hide
-```
-
-**Figure 7.** The two hosts' envelopes on one axis: same feeder, same dispatch problem, and a visible offset that is entirely the network model's doing.
-
-The verdict is decisive, and it is the whole reason for carrying two hosts.
-
-The IVACOPF dispatch reproduces the exact AC solution to about ``2\times10^{-11}`` p.u., so
-the voltage each inverter was told to read *is* the voltage it would see, and the droop
-residual survives the transfer intact: it stays at round-off. The LinDist3Flow dispatch
-does not. Its voltages are off by ``1.3\times10^{-3}`` p.u., which sounds harmless until
-you put it through the curve: the upper segment falls a full ``\bar q`` across 0.02 p.u.,
-a slope of ``50\,\bar q`` per p.u. of voltage, so
-
-```math
-1.3\times10^{-3}\;\text{p.u. of voltage} \;\times\; 50\,\bar q
-   \;=\; 0.065\,\bar q \;\approx\; 8\times10^{-3}\ \text{p.u. of VArs}
-```
-
-which is exactly the measured residual, and **about 6 % of that inverter's reactive
-rating**. The inverters would not produce the VArs the model dispatched. A steep local
-control law is an error amplifier, and it is the host that decides what gets amplified.
-
-One feature of Table 7 is worth recording rather than glossing: *neither* host violates a
-voltage limit, because the band is simply not binding on this feeder, so LinDist3Flow's
-failure is confined to the droop residual and shows up nowhere in the constraint report.
-The failure mode is not guaranteed to announce itself as an infeasibility or a limit
-violation. On a feeder where the band did bind, the same voltage error would also have put
-time steps outside ``[0.95, 1.05]``, but that is luck of the case rather than a property of
-the model, which is precisely why the audit is worth running every time.
-
-None of this is a defect of the droop block, and none of it is fixed by choosing a
-different encoding. It is the price of dropping losses from the balance and of the
-near-balanced-voltage assumption behind the ``a^R``, ``a^X`` coefficients, an assumption
-that is *least* true on exactly the kind of unbalanced LV feeder where single-phase
-inverters matter.
-
-## What each host costs
-
-**Table 8.** Successive-linearisation passes for the three-phase IVACOPF host, Lambda encoding, measured with the error metrics of (29).
-
-```@example tut
-tp_pass_table()   # hide
-```
-
-Three passes, and the error metrics fall by roughly three orders of magnitude each time,
-the behaviour you would expect of a Taylor expansion refreshed about its own solution.
-The objective moves by 5 % between the first and second pass and by ``5\times10^{-5}`` between
-the second and third, so the first pass alone would have been meaningfully wrong and the
-third is essentially free insurance. All three encodings take the same three passes, and
-their first two passes agree to three significant figures on every metric; by the third
-they are all far below tolerance and what separates them is solver noise. The outer loop
-belongs to the host, not to the droop.
-
-Note the second column of Table 8: **each pass is a complete MILP** (or NLP), so IVACOPF
-costs one LinDist3Flow-sized solve per pass, on a model rather more than twice the size,
-times the number of passes, plus a few seconds of warm-start sweeps. That is the whole of
-the price, and Table 7 is what it buys.
-
-**Table 9.** What changes between the two three-phase hosts.
-
-| | LinDist3Flow | IVACOPF (3-phase) |
-|:--|:--|:--|
-| line equations | approximate: ``\alpha``-rotated drop coefficients, near-balance assumed | **exact**: ``\Delta V = ZI`` with full mutual coupling, nothing assumed |
-| losses | dropped from the balance | modelled, via the current variables |
-| line currents | not represented | decision variables, so the thermal limit (27) is writable |
-| nonlinearity | none | two bus relations, ``v\cdot I`` and ``\lvert v\rvert``, linearised and iterated |
-| solve | **one pass** | one MILP (or NLP) **per pass**, plus warm-start sweeps |
-| dispatch on the real network | off the droop by a visible margin | on the droop to round-off |
-
-The trade is the usual one, and it is the host's trade, not the encodings'. LinDist3Flow
-is the right tool for a fast first look, for screening a fleet or a feeder before
-committing to the expensive model, and for the scaling study below, where its single pass
-is what isolates the cost of the droop block itself. **Use IVACOPF for anything
-quantitative.**
-
 ## Does it scale?
 
 The encodings are cheap to state; the question is whether they survive a network worth
@@ -1206,6 +1129,14 @@ environment variable:
 
 ```bash
 TP_CASE=network_17_Feeder_6 julia --project=examples/three_phase     examples/three_phase/LinDist3Flow_Lambda.jl
+```
+
+
+`TP_HOSTS=ivacopf` or `TP_HOSTS=lindist3flow` regenerates just one family. The scalability
+table has its own sweep, which shells out to the scripts one per process:
+
+```bash
+julia --project=examples/three_phase examples/three_phase/scalability.jl
 ```
 
 **Table 10.** Scalability of the three encodings on the LinDist3Flow host, across the 194-bus `network_5_Feeder_2` [[14]](#ref-14) and the 3856-bus `network_17_Feeder_6` [[15]](#ref-15). “Max droop deviation” is ``\Delta`` of (30), evaluated at each host's own voltages.
@@ -1246,34 +1177,6 @@ The sweep runs one process per row, separately from the case study above, so its
 will not match that table to the second. Read both as orders of magnitude, as the warning
 further up says.
 
-
-## Reproducing these results
-
-The figures and tables on this page are drawn from results committed to the repository
-under `docs/src/assets/results/threephase/`, so building the documentation needs no
-solver. To regenerate them, which runs all six scripts across both hosts:
-
-```bash
-julia --project=examples/three_phase examples/three_phase/generate_results.jl
-```
-
-`TP_HOSTS=ivacopf` or `TP_HOSTS=lindist3flow` regenerates just one family. The scalability
-table has its own sweep, which shells out to the scripts one per process:
-
-```bash
-julia --project=examples/three_phase examples/three_phase/scalability.jl
-```
-
-Between them those two commands run all three encodings on both hosts, with Gurobi and
-Ipopt, and rewrite every JSON file this page reads. To run one encoding on one host
-yourself, call its script directly:
-
-```bash
-julia --project=examples/three_phase examples/three_phase/IVACOPF3Ph_Lambda.jl
-```
-
-Each script prints its model size, the solve, the curtailed energy, the voltage range per
-phase and the droop-deviation check of (30), and writes its own figures alongside.
 
 ## References
 
