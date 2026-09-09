@@ -230,7 +230,7 @@ solver; the third produces a nonlinear program (NLP) and needs an NLP solver. Bo
 solvers used here are in the General registry:
 
 ```julia
-Pkg.add(["Gurobi", "Ipopt"])
+julia --% --project=. -e "using Pkg; Pkg.add([""Gurobi"", ""Ipopt""])"
 ```
 
 | encoding | model class | solver used here |
