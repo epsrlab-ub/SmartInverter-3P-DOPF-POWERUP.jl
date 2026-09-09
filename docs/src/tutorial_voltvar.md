@@ -993,12 +993,19 @@ All six share their skeleton verbatim (data, PV placement, verification, figures
 The Big-M and Lambda scripts need an MILP solver (Gurobi); the Heaviside ones need only
 Ipopt.
 
+Before running the Gurobi-based examples, make sure that Gurobi is installed
+and that a valid license is available. If Gurobi does not automatically locate
+your license, set the `GRB_LICENSE_FILE` environment variable to the location
+of your `gurobi.lic` file.
+
+For example, 
+```bash
+$env:GRB_LICENSE_FILE="C:\gurobi1300\gurobi.lic"
+```
+
 ```bash
 julia --project=examples/three_phase examples/three_phase/IVACOPF3Ph_Lambda.jl
 ```
-
-Each reads its feeder, horizon and fleet from the environment, so the same model runs on a
-different network without touching the code:
 
 **Table 12.** Environment overrides accepted by every three-phase script.
 
