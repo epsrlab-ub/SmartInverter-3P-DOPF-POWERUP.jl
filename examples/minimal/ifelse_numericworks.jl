@@ -197,6 +197,3 @@ println("\nThe highlighted point is the operating point corresponding to your vo
 println("\nPress ENTER when you are finished viewing the plot.")
 
 readline()
-
-# Close the popup window
-Plots.GR.inline("closeall")
