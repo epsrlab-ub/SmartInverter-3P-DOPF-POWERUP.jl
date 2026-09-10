@@ -217,13 +217,6 @@ Six scripts, one per host and encoding:
 | **LinDist3Flow** | `LinDist3Flow_BigM.jl` | `LinDist3Flow_Lambda.jl` | `LinDist3Flow_Heaviside.jl` |
 | **IVACOPF** | `IVACOPF3Ph_BigM.jl` | `IVACOPF3Ph_Lambda.jl` | `IVACOPF3Ph_Heaviside.jl` |
 
-> **Use IVACOPF for quantitative work.** Audited against an exact three-phase AC power
-> flow on the bundled case, the IVACOPF dispatch reproduces the true solution to ~2e-11
-> p.u. and sits on the droop curve to the same order. The LinDist3Flow dispatch is off the
-> droop by 6% of inverter rating, so it is not deliverable. LinDist3Flow is for a fast
-> first look, for screening, and for the scaling study, where its single pass isolates the
-> cost of the droop block itself.
-
 ## Case studies
 
 Two real Electricity North West low-voltage feeders, Kron-reduced to three wires, both
@@ -238,70 +231,6 @@ voltages held inside `[0.95, 1.05]` p.u. on every phase.
 Sources and licence are in
 [`examples/three_phase/README.md`](examples/three_phase/README.md).
 
-Headline results, all three encodings agreeing to solver tolerance within each host:
-
-| host | curtailed | losses | droop residual at the **true** AC voltage |
-|:--|--:|--:|--:|
-| IVACOPF | 42.69 kWh | 14.61 kWh | 2.8e-11 |
-| LinDist3Flow | 46.32 kWh | not modelled | 8.0e-03, **not deliverable** |
-
-The last column is the test that separates the hosts: take each dispatch, solve the exact
-three-phase AC power flow for it, and ask whether the inverters would really have produced
-those VArs at the voltages they would really have seen.
-
-Feeder, horizon and fleet come from the environment (`TP_CASE`, `TP_STEPS`, `TP_NPV`, and
-for IVACOPF `TP_WARMSTART`, `TP_TOL`, `TP_MAXITER`, `TP_IMAXSEG`), so the same model runs
-on a different network without editing anything.
-
-### Does it scale?
-
-`scalability.jl` reruns the LinDist3Flow scripts on the 3856-bus feeder. The mixed-integer
-encodings carry a 3.3-million-variable model over the full day in about a minute, and the
-binary count does not move between feeders: it depends on inverters × time steps, not on
-network size. The integer-free encoding is the one that breaks: Ipopt gives up at the full
-horizon and needs a shortened day to finish. All three stay exact wherever they finish.
-
-## Repository layout
-
-```
-examples/three_phase/   6 standalone scripts: {LinDist3Flow,IVACOPF3Ph} × {BigM,Lambda,Heaviside}
-                        plus generate_results.jl, scalability.jl, plot_network.jl, and the feeders
-examples/minimal/       why an if-else cannot go straight into a solver, in 40 lines
-docs/                   Documenter site; builds without any solver
-src/                    the SmartInverterDOPF package: case data, droop encodings, DOPF hosts
-data/                   33-bus feeder, load profiles, solar profile (JSON)
-scripts/                generate_results.jl for the package's own results
-examples/single_phase/  6 single-phase scripts kept for reference; not covered by the tutorial
-test/                   test suite
-```
-
-Every standalone script is self-contained and shares its skeleton verbatim with its
-siblings, so a `diff` between any two shows only the droop block, or only the network
-model.
-
-## Regenerating the documentation results
-
-The documentation is built from precomputed results committed under
-`docs/src/assets/results/threephase/`, so building the docs needs no optimisation solver.
-To recompute them, which runs all six scripts across both hosts:
-
-```bash
-julia --project=examples/three_phase examples/three_phase/generate_results.jl
-```
-
-`TP_HOSTS=ivacopf` or `TP_HOSTS=lindist3flow` regenerates one family only. The scalability
-table has its own sweep:
-
-```bash
-julia --project=examples/three_phase examples/three_phase/scalability.jl
-```
-
-## Building the documentation
-
-```bash
-julia --project=docs -e "using Pkg; Pkg.develop(PackageSpec(path=pwd())); Pkg.instantiate()"
-julia --project=docs docs/make.jl
-```
 
 ## License
 
