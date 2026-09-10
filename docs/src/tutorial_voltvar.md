@@ -1031,44 +1031,6 @@ TP_CASE=network_17_Feeder_6 TP_STEPS=24 julia --project=examples/three_phase exa
 tp_class_table()   # hide
 ```
 
-## Verification: does the dispatch actually lie on the curve?
-
-The curves below are drawn in **absolute p.u. VArs** rather than normalised by
-``\bar q_i``. Normalising would collapse the four size classes onto one line and hide the
-thing worth seeing: each class has its own reactive capability, so each follows its own
-curve, and a dispatch point is only correct if it lies on the curve *of its own
-inverter*. The shaded band is the admissible voltage range ``[0.95, 1.05]``.
-
-```@example tut
-tp_droop_figure()   # hide
-```
-
-**Figure 5.** Three-phase dispatch against the droop, LinDist3Flow host. Four classes, four curves; a point is correct only if it lies on the curve of its own inverter.
-
-```@example tut
-tp_droop_figure("lambda"; res = tpi, host = "IVACOPF")   # hide
-```
-
-**Figure 6.** The same fleet on the IVACOPF host. The points sit at different places along the curves, because the two hosts predict different terminal voltages, but never off them.
-
-All three encodings put every point on the right curve, to solver tolerance, **on both
-hosts**: on a network that is unbalanced, multiphase and carrying a mixed fleet. The
-numbers behind these figures are Table 6 below.
-
-Figures 5 and 6 are not identical, and the difference is instructive: the points sit at
-different *places along* the curves, because the two hosts predict different terminal
-voltages. They are never off the curves. Which set of places is the real one is settled
-by the audit in [What the exact power flow says](@ref).
-
-Note also where the operating points sit. Every one of the 1152 falls either in the
-dead-band or on the sloped segment just above nominal: the sensed voltages span
-``0.992`` to ``1.019`` p.u., so the fleet never drops to ``V^{\text{bp}}_2 = 0.90`` nor
-rises to ``V^{\text{bp}}_5 = 1.02``, and the two saturated tails and the lower sloped
-segment are never reached. Those segments still have to be in the model, because the
-solver must be free to consider them, but they do no work on this feeder. It is a
-PV-driven overvoltage problem: the fleet sits inert in the dead-band while the sun is
-down, and absorbs on the sloped segment while it is up.
-
 ## The two hosts, side by side
 
 Six runs: three encodings on each of two hosts, everything else held fixed.
