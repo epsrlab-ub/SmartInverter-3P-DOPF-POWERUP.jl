@@ -841,7 +841,7 @@ q_n^{G,\varphi} - q_n^{L,\varphi}
 \qquad \forall n \in \Upsilon,\ \varphi \in \Psi \tag{22}
 ```
 
-**Linearised power balance.** Each product ``xy`` in (37) is replaced by its first-order
+**Linearised power balance.** Each product ``xy`` in (22) is replaced by its first-order
 Taylor expansion about the previous iterate, ``xy \approx x^{\circ}y + y^{\circ}x -
 x^{\circ}y^{\circ}``, where ``\circ`` marks a value **fixed from the previous pass**, a
 constant, not a variable:
@@ -1081,6 +1081,194 @@ host can answer about itself, namely what voltage each inverter would actually h
 measured on its own phase, and therefore what reactive power the curve would actually have
 produced there. The same sweep supplies the IVACOPF warm start, so it is exercised on
 every run.
+
+### The exact three-phase backward/forward sweep
+
+The sweep is set out here in the same notation as the two hosts, so that what it assumes,
+and what it does not, can be read straight off. The feeder is radial and rooted at the
+substation ``0``, so every bus ``m \in \Upsilon \setminus \{0\}`` has exactly one parent
+line ``(n,m) \in \mathcal{L}``; write ``\mathcal{C}(m) = \{(m,l) \in \mathcal{L}\}`` for
+the lines leaving it. Two things separate this from the hosts above. The dispatch is
+**data** here, not a decision: ``p_i^{G}`` and ``q_i^{G}`` are whatever the host returned,
+frozen. And nothing is being optimised, so the sweep runs once per time step,
+independently, there being no inter-temporal coupling to carry.
+
+**Net injection.** At bus ``n`` and phase ``\varphi`` the load draws and any inverter
+sited there injects:
+
+```math
+S_n^{\varphi} \;=\;
+   \Big(p_n^{L,\varphi} - \!\!\sum_{i \,\in\, \mathcal{G}_n^{\varphi}}\!\! p_i^{G}\Big)
+ \;+\; j\Big(q_n^{L,\varphi} - \!\!\sum_{i \,\in\, \mathcal{G}_n^{\varphi}}\!\! q_i^{G}\Big),
+\qquad
+\mathcal{G}_n^{\varphi} = \big\{\, i \in \mathcal{G} \;:\; b(i) = n,\; \varphi(i) = \varphi \,\big\} \tag{30}
+```
+
+A single-phase inverter contributes to one phase of one bus and to nothing else, which is
+the same statement the droop interface makes, now read from the network's side.
+
+**Bus current, the one nonlinear relation.** Loads and inverters are constant-power
+devices, so the current a bus draws depends on the voltage it finds itself at:
+
+```math
+I_n^{\varphi,(k)} \;=\; \left( \frac{S_n^{\varphi}}{V_n^{\varphi,(k)}} \right)^{\!\!*},
+\qquad \forall n \in \Upsilon,\ \varphi \in \Psi \tag{31}
+```
+
+This is (22) once more, ``S = V I^{*}``, with nothing expanded. IVACOPF has to linearise
+that product about a previous iterate, eq. (23), because ``V`` and ``I`` are both decision
+variables there; here the state is only being *solved*, so the product stands as written
+and the nonlinearity is carried exactly. Note the sign convention: ``I_n^{\varphi}`` in
+(31) is the current the bus **draws**, which is what the accumulation below needs, and it
+is minus the injection current of (21).
+
+**Backward pass, KCL from the leaves inward.** The current in a line is everything drawn
+beyond it:
+
+```math
+I_{nm}^{\varphi,(k)} \;=\; I_m^{\varphi,(k)}
+   \;+\!\! \sum_{(m,l) \,\in\, \mathcal{C}(m)}\!\! I_{ml}^{\varphi,(k)},
+\qquad \forall (n,m) \in \mathcal{L},\ \varphi \in \Psi \tag{32}
+```
+
+visiting the buses in reverse depth order, so that every child current on the right has
+already been formed in this pass. This is (21) rearranged: on a radial feeder KCL is
+solvable by accumulation, with no matrix to factorise and no approximation of any kind.
+
+**Forward pass, Ohm's law with the full 3×3 impedance.** Sweeping outward from the
+substation, in depth order this time:
+
+```math
+\begin{bmatrix} V_m^{a}\\[2pt] V_m^{b}\\[2pt] V_m^{c}\end{bmatrix}^{(k+1)}
+\;=\;
+\begin{bmatrix} V_n^{a}\\[2pt] V_n^{b}\\[2pt] V_n^{c}\end{bmatrix}^{(k+1)}
+\;-\;
+\begin{bmatrix}
+Z_{nm}^{aa} & Z_{nm}^{ab} & Z_{nm}^{ac}\\
+Z_{nm}^{ba} & Z_{nm}^{bb} & Z_{nm}^{bc}\\
+Z_{nm}^{ca} & Z_{nm}^{cb} & Z_{nm}^{cc}
+\end{bmatrix}
+\begin{bmatrix} I_{nm}^{a}\\[2pt] I_{nm}^{b}\\[2pt] I_{nm}^{c}\end{bmatrix}^{(k)},
+\qquad \forall (n,m) \in \mathcal{L} \tag{33}
+```
+
+the parent voltage on the right being the one this same pass has just produced. Equation
+(33) is (19) with the shunt term gone, and gone *exactly* rather than by assumption: both
+feeders are Kron-reduced three-wire networks, for which ``y_{nm} = 0``. What is absent
+matters more. There is no ``\alpha^{\psi-\varphi}`` rotation, so nothing whatever is
+assumed about the balance between phases; the off-diagonal ``Z_{nm}^{\varphi p}`` multiply
+the actual currents in the other two phases, whatever those turn out to be. And ``V``
+stays complex throughout, so no magnitude linearisation of the kind (25) performs is
+needed anywhere.
+
+**Boundary condition.** The substation is held at its three-phase reference on every pass,
+which is (28) again:
+
+```math
+V_0^{\varphi,(k)} \;=\; e^{j\theta_{\varphi}},
+\qquad \theta = (0°,\, -120°,\, +120°),
+\qquad \forall k \tag{34}
+```
+
+and the same three values, repeated at every bus, are the starting point ``V^{(0)}``.
+
+**Fixed point.** Equations (31) to (33) form a map from ``V^{(k)}`` to ``V^{(k+1)}``,
+iterated until it stops moving:
+
+```math
+\max_{n\in\Upsilon,\ \varphi\in\Psi}
+   \big\lvert\, V_n^{\varphi,(k+1)} - V_n^{\varphi,(k)} \,\big\rvert \;\le\; \epsilon_{\mathrm{pf}} \tag{35}
+```
+
+The scripts do not test (35) at all: they run a fixed 60 passes per time step, which on an
+LV feeder of this impedance is well past the point where the update falls below double
+precision. Write ``V^{\star}`` for the fixed point and
+``v_n^{\varphi\star} = \lvert V_n^{\varphi\star} \rvert`` for the magnitudes it implies.
+These satisfy (30) to (34) simultaneously and to round-off, which is what the word
+*exact* is doing in this section: ``V^{\star}`` is an AC power-flow solution, not an
+approximation of one.
+
+**What the sweep deliberately does not carry.** No voltage band (26), no thermal limit
+(27), no capability polygon, and above all **no droop**. The reactive powers ``q_i^{G}``
+enter (30) as fixed numbers, so nothing in (30) to (35) pushes them back onto the curve.
+That is what makes the two numbers below a test rather than a tautology: the curve is
+imposed nowhere in the sweep, so any agreement with it has to come from the dispatch
+itself.
+
+**The two audit numbers.** Over every bus, phase, inverter and time step of the day,
+Table 7 reports
+
+```math
+\begin{aligned}
+\Delta v &= \max_{n\in\Upsilon,\ \varphi\in\Psi,\ t}
+   \big\lvert\, v_n^{\varphi}(t) \;-\; v_n^{\varphi\star}(t) \,\big\rvert
+   & &\text{the host's own } v \text{ against the true one}\\[2pt]
+\rho^{\mathrm{true}} &= \max_{i\in\mathcal{G},\ t}
+   \big\lvert\, q_i^{G}(t) \;-\; q_i\big(v_{b(i)}^{\varphi(i)\star}(t)\big) \,\big\rvert
+   & &\text{droop residual at the true voltage}
+\end{aligned} \tag{36}
+```
+
+where ``v_n^{\varphi}(t)`` is the voltage the host itself reported and ``q_i(\cdot)`` is
+that inverter's IEEE 1547 curve, the very map encoded by (7), (10) and (14). Table 6's
+column is the same residual measured against the host's own voltage,
+``\rho^{\mathrm{model}} = \max_{i,t} \lvert q_i^{G}(t) - q_i(v_i(t)) \rvert``, and the
+distance between ``\rho^{\mathrm{model}}`` and ``\rho^{\mathrm{true}}`` is the whole of
+what this audit adds.
+
+#### The sweep in Julia
+
+```julia
+# Exact three-phase backward/forward sweep, eqs. (30)–(35). Kron-reduced three-wire model
+# with implicit ground and zero shunts, so it is exact for these injections. It does double
+# duty: the warm-start point before the optimisation, and the audit after it.
+# `Pd`/`Qd` are npv×T arrays of inverter dispatch in p.u.
+function sweep_state(Pd, Qd, t; iters = 60)
+    Vc  = [copy(V0) for _ in 1:nb]                    # flat reference at every bus, eq. (34)
+    Ibr = [zeros(ComplexF64, 3) for _ in 1:nbr]
+    rev = reverse(ORDER)                              # leaves first
+    for _ in 1:iters
+        S = [zeros(ComplexF64, 3) for _ in 1:nb]      # ---- net injection, eq. (30) -------
+        for b in 1:nb, φ in PHASES
+            S[b][φ] = complex(Pload_pk[b, φ] * Pmult[t], Qload_pk[b, φ] * Qmult[t])
+        end
+        for (i, g) in enumerate(PV)
+            S[g.bus][g.phase] -= complex(Pd[i, t], Qd[i, t])
+        end
+        Ibus = [conj.(S[b] ./ Vc[b]) for b in 1:nb]   # ---- bus current drawn, eq. (31) ---
+        for bname in rev                              # ---- backward: currents, eq. (32) --
+            b = bus_id[bname]
+            b == islack && continue
+            (_, k) = PARENT[bname]
+            Ibr[k] = Ibus[b] + sum((Ibr[c] for c in CHILD_BR[b]), init = zeros(ComplexF64, 3))
+        end
+        for bname in ORDER                            # ---- forward: voltages, eq. (33) ---
+            bname == SLACK && continue
+            (par, k) = PARENT[bname]
+            Vc[bus_id[bname]] = Vc[bus_id[par]] - BR[k].Z * Ibr[k]
+        end
+    end
+    return Vc, Ibr
+end
+```
+
+`BR[k].Z * Ibr[k]` is the whole of (33): a 3×3 complex matrix times a 3-vector. The mutual
+terms are carried by the multiplication itself, and there is nowhere in that line for a
+balance assumption to enter.
+
+The audit is then four lines, run over the solved dispatch at every time step, with the
+loops over buses, phases and inverters elided:
+
+```julia
+Vt        = sweep(t)                                              # |V⋆|, eqs. (30)–(35)
+gap       = max(gap, maximum(abs.(V[:, :, t] .- Vt)))             # Δv,        eq. (36)
+dev_true  = max(dev_true,  abs(Qdg_v[i, t] - dq(Vt[b, φ], qb)))   # ρ_true,    eq. (36)
+dev_model = max(dev_model, abs(Qdg_v[i, t] - dq(V[b, φ, t], qb))) # ρ_model, Table 6
+```
+
+with `dq` the piecewise-linear curve of the inverter's own class, evaluated as an ordinary
+`if-else`, which is perfectly legitimate here because every voltage handed to it is a
+number rather than a decision variable.
 
 **Table 7.** The exact-power-flow audit. Each solved dispatch is re-solved with a full three-phase backward/forward sweep, and compared against what the host predicted.
 
