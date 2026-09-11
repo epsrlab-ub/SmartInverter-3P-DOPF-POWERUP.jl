@@ -30,24 +30,98 @@ using JSON3, Printf, Plots
 const PHASES = 1:3
 const DATA   = joinpath(@__DIR__, "data")
 
-# ─────────────────────────────────────────────── configuration you may want to change ──
-const N_PV_PER_PHASE = parse(Int, get(ENV, "TP_NPV", "4"))          # PV sites per phase, placed at the electrically farthest load buses
-# Four inverter classes. Each phase receives one of each, so size is not confounded with
-# phase or with distance from the substation. Because q̄ = S_max, the four classes follow
-# four *different* droop curves: same breakpoint voltages, four saturation levels.
+# =====================================================================================
+# Interactive tutorial configuration
+# =====================================================================================
+# By default this script is interactive. For unattended runs, set TP_INTERACTIVE=0 and
+# use the existing environment variables TP_NPV and TP_STEPS.
+const INTERACTIVE = get(ENV, "TP_INTERACTIVE", "1") != "0"
+
+function ask_int(prompt::AbstractString, default::Int; allowed = nothing)
+    while true
+        print("$prompt [$default]: ")
+        s = strip(readline())
+        x = isempty(s) ? default : tryparse(Int, s)
+
+        if x === nothing
+            println("  Please enter an integer.")
+            continue
+        end
+
+        if allowed !== nothing && !(x in allowed)
+            println("  Choose one of: $(join(collect(allowed), ", "))")
+            continue
+        end
+
+        return x
+    end
+end
+
+function pause_tutorial(message::AbstractString = "Press ENTER to continue...")
+    INTERACTIVE || return
+    println()
+    print(message)
+    readline()
+    println()
+end
+
+# Four inverter classes. Each phase receives one of each when N_PV_PER_PHASE = 4, so
+# size is not confounded with phase or distance from the substation.
 const PV_CLASSES = (("A — 3 kW",  3.0),
                     ("B — 5 kW",  5.0),
                     ("C — 8 kW",  8.0),
                     ("D — 12 kW", 12.0))
-const S_OVER_P       = 1.1       # inverter oversizing: S_max = 1.1 * P_rated
-const VLIM           = (0.95, 1.05)              # bus voltage limits, p.u.,  eq. (33)
-const VBP            = [0.88, 0.90, 0.97, 1.00, 1.02, 1.10]   # IEEE 1547 breakpoints, p.u.
-const QSHAPE         = [1.0, 1.0, 0.0, 0.0, -1.0, -1.0]       # q / q̄ at each breakpoint
-const SBASE_KVA      = 100.0     # per-phase power base
+const S_OVER_P       = 1.1
+const VLIM           = (0.95, 1.05)
+const VBP            = [0.88, 0.90, 0.97, 1.00, 1.02, 1.10]
+const QSHAPE         = [1.0, 1.0, 0.0, 0.0, -1.0, -1.0]
+const SBASE_KVA      = 100.0
 const MIP_GAP        = 1e-3
-const METHOD         = "Big-M"   # droop encoding, for labels
-const FIGSUF         = "_bigm"                # suffix on the figure filenames
-# ───────────────────────────────────────────────────────────────────────────────────────
+const METHOD         = "Big-M"
+const FIGSUF         = "_bigm"
+
+npv_default   = parse(Int, get(ENV, "TP_NPV", "4"))
+steps_default = parse(Int, get(ENV, "TP_STEPS", "96"))
+
+if INTERACTIVE
+    println()
+    println("============================================================")
+    println(" THREE-PHASE SMART-INVERTER OPF — INTERACTIVE TUTORIAL")
+    println("============================================================")
+    println()
+    println("Configure a LinDist3Flow simulation with IEEE 1547")
+    println("Volt-VAr control encoded using the Big-M formulation.")
+    println("Press ENTER at a prompt to accept the value shown in brackets.")
+    println()
+
+    global N_PV_PER_PHASE = ask_int(
+        "Number of PV inverters per phase",
+        npv_default in 1:4 ? npv_default : 4;
+        allowed = 1:4,
+    )
+
+    global T = ask_int(
+        "Number of time steps over 24 h",
+        steps_default in (24, 48, 96) ? steps_default : 96;
+        allowed = (24, 48, 96),
+    )
+
+    println()
+    println("---------------- Selected configuration ----------------")
+    println("PV sites / phase : $N_PV_PER_PHASE")
+    println("Time steps       : $T")
+    println("Network model    : LinDist3Flow")
+    println("Droop encoding   : $METHOD")
+    println("--------------------------------------------------------")
+    pause_tutorial("Press ENTER to load the feeder and build the simulation...")
+else
+    N_PV_PER_PHASE = npv_default
+    T = steps_default
+end
+
+T in (24, 48, 96) || error("TP_STEPS must be one of 24, 48, or 96 for the supplied 96-point profiles.")
+N_PV_PER_PHASE in 1:4 || error("TP_NPV must be between 1 and 4 for this tutorial.")
+# =====================================================================================
 
 # ============================================================== 1) read the BMOPF case ==
 # Feeder and horizon may be overridden from the environment, so the identical model can
@@ -68,8 +142,7 @@ SBASE      = SBASE_KVA * 1e3                                     # VA, per phase
 ZBASE      = VBASE^2 / SBASE
 const VNOM = 1.0
 
-T      = parse(Int, get(ENV, "TP_STEPS", "96"))
-step   = max(1, 96 ÷ T)
+step   = 96 ÷ T
 Pmult  = collect(Float64, loadpr.P_percent)[1:step:end][1:T] ./ 100
 Qmult  = collect(Float64, loadpr.Q_percent)[1:step:end][1:T] ./ 100
 G      = collect(Float64, solar.G_percent)[1:step:end][1:T]  ./ 100
@@ -230,6 +303,20 @@ for g in sort(PV, by = g -> (g.phase, -DIST[BUSES[g.bus]]))
 end
 
 # ================================================================= 4) build and solve ===
+if INTERACTIVE
+    println()
+    println("============================================================")
+    println(" SOLVING THE THREE-PHASE LinDist3Flow OPF")
+    println("============================================================")
+    println()
+    println("The optimization will:")
+    println("  1. enforce the multiphase LinDist3Flow voltage-drop equations,")
+    println("  2. enforce phase-by-phase active and reactive power balance,")
+    println("  3. embed the IEEE 1547 Volt-VAr curve using the Big-M formulation, and")
+    println("  4. minimize total PV curtailment over the selected 24-hour horizon.")
+    println()
+    pause_tutorial("Press ENTER to start the optimization...")
+end
 model = Model(Gurobi.Optimizer)
 set_optimizer_attribute(model, "MIPGap", MIP_GAP)
 set_optimizer_attribute(model, "OutputFlag", 0)
@@ -347,7 +434,8 @@ V   = value.(v)
 Pdg_v, Qdg_v, PVC_v = value.(Pdg), value.(Qdg), value.(PVC)
 
 # ==================================================================== 5) results ========
-kWh(x) = x * SBASE / 1e3 / 4                      # p.u. summed over 15-min steps → kWh
+Δt_hours = 24 / T
+kWh(x) = x * SBASE / 1e3 * Δt_hours              # p.u. summed over selected time steps → kWh
 E_avail = kWh(sum(Pavail))
 E_curt  = kWh(sum(PVC_v))
 println("\n================ RESULTS — LinDist3Flow + $METHOD ================")
@@ -369,7 +457,243 @@ droop_q(vv, qb) = vv <= VBP[2] ? qb :
                   vv <= VBP[5] ? -qb * (vv - VBP[4]) / (VBP[5] - VBP[4]) : -qb
 dev = maximum(abs(Qdg_v[i, t] - droop_q(V[PV[i].bus, PV[i].phase, t], PV[i].Smax))
               for i in 1:npv, t in 1:T)
-@printf("\nmax |q_dispatch − q_curve| : %.3e p.u.   (exactness of the %s encoding)\n", dev, METHOD)
+
+# ==================================================================== 6) figures ========
+if INTERACTIVE
+    println()
+    println("============================================================")
+    println(" RESULT VISUALIZATION")
+    println("============================================================")
+    println()
+    println("The optimization is complete. The first figure overlays every")
+    println("optimized inverter dispatch point on its corresponding Volt-VAr curve.")
+    pause_tutorial("Press ENTER to display the full Volt-VAr dispatch plot...")
+end
+
+gr(size = (900, 520), legend = :topright, framestyle = :box, grid = true, gridalpha = 0.15,
+   left_margin = 6Plots.mm, bottom_margin = 4Plots.mm)
+hours = range(0, 24 - 24 / T, length = T)
+
+CLSCOL = [:seagreen, :orangered, :dodgerblue, :mediumorchid]
+qmax   = maximum(g.Smax for g in PV)
+
+# --------------------------------------------------------------------- full fleet dispatch
+p1 = plot(size = (1050, 780), grid = false, framestyle = :axes,
+          title = "Dispatch vs. the IEEE 1547 droop — LinDist3Flow, $METHOD, four classes, three phases",
+          titlefontsize = 12,
+          xlabel = "Voltage (p.u.)", ylabel = "VAR Gen. (p.u.)",
+          xlims = (VBP[1], VBP[6]), ylims = (-1.15qmax, 1.15qmax),
+          xticks = 0.90:0.05:1.10, guidefontsize = 12, tickfontsize = 10,
+          legendfontsize = 9, legend = :outertop, legend_columns = 4,
+          foreground_color_legend = :black, background_color_legend = :white,
+          left_margin = 6Plots.mm, right_margin = 8Plots.mm, bottom_margin = 5Plots.mm)
+
+vspan!(p1, [VLIM[1], VLIM[2]], color = :lightblue, alpha = 0.30, lw = 0, label = false)
+vline!(p1, [VLIM[1], VLIM[2]], ls = :dash, lw = 1.5, color = :gray65, label = false)
+hline!(p1, [0.0], ls = :dash, lw = 1.5, color = :gray65, label = false)
+
+for ci in 1:ncls
+    qb = S_OVER_P * PV_CLASSES[ci][2] * 1e3 / SBASE
+    plot!(p1, VBP, QSHAPE .* qb, lw = 3, color = CLSCOL[ci], label = false)
+    scatter!(p1, VBP[2:5], (QSHAPE .* qb)[2:5], m = :circle, ms = 6,
+             mc = CLSCOL[ci], msc = CLSCOL[ci], label = false)
+    idx = [i for i in 1:npv if PV[i].cls == ci]
+    scatter!(p1, vec([V[PV[i].bus, PV[i].phase, t] for i in idx, t in 1:T]),
+             vec([Qdg_v[i, t] for i in idx, t in 1:T]),
+             m = :+, ms = 7, msw = 2.5, mc = CLSCOL[ci], msc = CLSCOL[ci], label = false)
+end
+
+for ci in 1:ncls
+    plot!(p1, [1.5, 1.6], [0.0, 0.0], lw = 2, color = CLSCOL[ci], m = :circle, ms = 5,
+          mc = CLSCOL[ci], msc = CLSCOL[ci], label = "$(PV_CLASSES[ci][1]) droop")
+end
+for ci in 1:ncls
+    scatter!(p1, [1.5], [0.0], m = :+, ms = 7, msw = 2,
+             mc = CLSCOL[ci], msc = CLSCOL[ci], label = "$(PV_CLASSES[ci][1]) Q")
+end
+vspan!(p1, [1.5, 1.6], color = :lightblue, alpha = 0.30, lw = 0,
+       label = "Feasible Operation Region")
+
+gui(p1)
+println("\nPress ENTER when you are finished viewing the plot.")
+readline()
+
+# --------------------------------------------------------------------- interactive result explorer
+if INTERACTIVE
+    pause_tutorial("Press ENTER to explore one inverter class...")
+
+    class_options = sort(unique(g.cls for g in PV))
+    println("Available inverter classes in this simulation:")
+    for (menu_idx, ci) in enumerate(class_options)
+        nsites = count(g -> g.cls == ci, PV)
+        println("  $menu_idx. $(PV_CLASSES[ci][1])  ($nsites sites)")
+    end
+
+    class_choice = ask_int(
+        "Select an inverter class",
+        1;
+        allowed = 1:length(class_options),
+    )
+    ci = class_options[class_choice]
+    idx = [i for i in 1:npv if PV[i].cls == ci]
+    qb = S_OVER_P * PV_CLASSES[ci][2] * 1e3 / SBASE
+
+    pclass = plot(
+        VBP,
+        QSHAPE .* qb,
+        lw = 3,
+        label = "$(PV_CLASSES[ci][1]) Volt-VAr curve",
+        xlabel = "Voltage at inverter terminal (p.u.)",
+        ylabel = "VAr output (p.u.)",
+        title = "Dispatch of $(PV_CLASSES[ci][1]) inverters — LinDist3Flow",
+        xlims = (VBP[1], VBP[6]),
+        ylims = (-1.15 * qb, 1.15 * qb),
+        grid = false,
+        framestyle = :axes,
+        legend = :topright,
+    )
+    vspan!(pclass, [VLIM[1], VLIM[2]], alpha = 0.20, label = "Allowed voltage range")
+    hline!(pclass, [0.0], ls = :dash, label = false)
+    scatter!(
+        pclass,
+        vec([V[PV[i].bus, PV[i].phase, t] for i in idx, t in 1:T]),
+        vec([Qdg_v[i, t] for i in idx, t in 1:T]),
+        marker = :+,
+        ms = 8,
+        msw = 2,
+        label = "Optimal dispatch",
+    )
+
+    gui(pclass)
+    println("\nPress ENTER when you are finished viewing the plot.")
+    readline()
+
+    pause_tutorial("Press ENTER to inspect one inverter and one hour...")
+
+    println("Inverters in $(PV_CLASSES[ci][1]):")
+    for (menu_idx, i) in enumerate(idx)
+        g = PV[i]
+        @printf("  %d. bus %-6s  phase %d\n", menu_idx, BUSES[g.bus], g.phase)
+    end
+
+    inv_choice = ask_int(
+        "Select an inverter",
+        1;
+        allowed = 1:length(idx),
+    )
+    i = idx[inv_choice]
+    g = PV[i]
+
+    hour = ask_int(
+        "Choose an hour of day to inspect",
+        12;
+        allowed = 0:23,
+    )
+    tinspect = min(hour * T ÷ 24 + 1, T)
+    vv = V[g.bus, g.phase, tinspect]
+    qq = Qdg_v[i, tinspect]
+
+    println()
+    println("Selected operating point")
+    println("------------------------")
+    @printf("Bus              : %s\n", BUSES[g.bus])
+    @printf("Phase            : %d\n", g.phase)
+    @printf("Inverter class   : %s\n", PV_CLASSES[g.cls][1])
+    @printf("Displayed time   : %.2f h\n", hours[tinspect])
+    @printf("Voltage          : %.6f p.u.\n", vv)
+    @printf("Reactive output  : %.6f p.u.\n", qq)
+
+    pinspect = plot(
+        VBP,
+        QSHAPE .* g.Smax,
+        lw = 3,
+        xlabel = "Voltage at inverter terminal (p.u.)",
+        ylabel = "VAr output (p.u.)",
+        title = "$(PV_CLASSES[g.cls][1]) — bus $(BUSES[g.bus]), phase $(g.phase), $(round(hours[tinspect]; digits=2)) h",
+        label = "Volt-VAr curve",
+        xlims = (VBP[1], VBP[6]),
+        ylims = (-1.15 * g.Smax, 1.15 * g.Smax),
+        grid = false,
+        framestyle = :axes,
+        legend = :topright,
+    )
+    vspan!(pinspect, [VLIM[1], VLIM[2]], alpha = 0.20, label = "Allowed voltage range")
+    hline!(pinspect, [0.0], ls = :dash, label = false)
+    scatter!(pinspect, [vv], [qq], ms = 9, marker = :circle, label = "Selected operating point")
+
+    gui(pinspect)
+    println("\nPress ENTER when you are finished viewing the plot.")
+    readline()
+
+    pause_tutorial("Press ENTER to display the feeder voltage envelope...")
+end
+
+# --------------------------------------------------------------------- feeder voltage envelope
+p2 = plot(xlabel = "hour of day", ylabel = "voltage (p.u.)", xticks = 0:3:24, xlims = (0, 24),
+          title = "Feeder voltage envelope by phase — LinDist3Flow")
+for (φ, c) in zip(PHASES, (:seagreen, :orangered, :dodgerblue))
+    plot!(p2, hours, [maximum(V[:, φ, t]) for t in 1:T], lw = 2, color = c, label = "phase $φ max")
+    plot!(p2, hours, [minimum(V[:, φ, t]) for t in 1:T], lw = 2, ls = :dash, color = c,
+          label = "phase $φ min")
+end
+hline!(p2, [VLIM[1], VLIM[2]], ls = :dot, lw = 1.5, color = :red, label = "limits")
+
+gui(p2)
+println("\nPress ENTER when you are finished viewing the plot.")
+readline()
+
+INTERACTIVE && pause_tutorial("Press ENTER to display available versus delivered PV power...")
+
+# --------------------------------------------------------------------- available vs delivered PV
+p3 = plot(hours, [sum(Pavail[:, t]) * SBASE / 1e3 for t in 1:T], lw = 2, ls = :dash,
+          color = :grey45, label = "available",
+          xlabel = "hour of day", ylabel = "kW", xticks = 0:3:24, xlims = (0, 24),
+          title = "Fleet PV: available vs delivered — LinDist3Flow")
+plot!(p3, hours, [sum(Pdg_v[:, t]) * SBASE / 1e3 for t in 1:T], lw = 2, color = :darkorange2,
+      fillrange = 0, fillalpha = 0.15, label = "delivered")
+
+gui(p3)
+println("\nPress ENTER when you are finished viewing the plot.")
+readline()
+
+
+# ---- interactive verification: LinDist3Flow vs exact three-phase power flow ------------
+
+if INTERACTIVE
+    println()
+    println("============================================================")
+    println(" LINDIST3FLOW ACCURACY CHECK")
+    println("============================================================")
+    println()
+    println("LinDist3Flow is a linear approximation of the three-phase feeder.")
+    println("We can compare its voltage prediction against an exact")
+    println("three-phase backward/forward sweep using the same optimized")
+    println("PV active- and reactive-power dispatch.")
+    println()
+
+    # Automatically identify the time of maximum fleet PV output
+    tmax_auto = argmax([sum(Pdg_v[:, t]) for t in 1:T])
+    hour_auto = (tmax_auto - 1) * 24 / T
+
+    @printf("The highest-PV operating point occurs at approximately %.2f h.\n", hour_auto)
+    println()
+    println("You may inspect that operating point or choose another hour.")
+
+    hour_check = ask_int(
+        "Choose an hour of day for the exact AC comparison",
+        round(Int, hour_auto);
+        allowed = 0:23,
+    )
+
+    tcheck = min(hour_check * T ÷ 24 + 1, T)
+
+else
+    # For unattended runs, retain the original behavior:
+    # validate at the time of maximum PV production.
+    tcheck = argmax([sum(Pdg_v[:, t]) for t in 1:T])
+end
+
+
 
 # ---- verification 2: LinDist3Flow voltages vs an exact three-phase power flow ----------
 #  Backward/forward sweep on the same dispatch. Kron-reduced three-wire model with
@@ -409,82 +733,33 @@ function sweep(t)
     return [abs(Vc[b][φ]) for b in 1:nb, φ in PHASES]
 end
 
-tmax = argmax([sum(Pdg_v[:, t]) for t in 1:T])             # busiest PV step
-Vtrue = sweep(tmax)
-gap   = maximum(abs.(V[:, :, tmax] .- Vtrue))
-@printf("LinDist3Flow vs exact AC at t=%d : max |Δv| = %.3e p.u.  (true range %.4f – %.4f)\n",
-        tmax, gap, minimum(Vtrue), maximum(Vtrue))
 
-# ==================================================================== 6) figures ========
-gr(size = (900, 520), legend = :topright, framestyle = :box, grid = true, gridalpha = 0.15,
-   left_margin = 6Plots.mm, bottom_margin = 4Plots.mm)
-hours = range(0, 24 - 24 / T, length = T)
+# Run exact three-phase backward/forward sweep
+Vtrue = sweep(tcheck)
 
-#  One curve per inverter class, drawn in ABSOLUTE p.u. VArs so the four saturation
-#  levels q̄ are visible; normalising by q̄ would collapse them onto a single line and
-#  hide the point. Every "+" is one 15-min dispatch point and must sit on the curve of
-#  its own class.
-CLSCOL = [:seagreen, :orangered, :dodgerblue, :mediumorchid]
-qmax   = maximum(g.Smax for g in PV)
+# Compare LinDist3Flow voltage magnitudes against exact AC voltages
+Vapprox = V[:, :, tcheck]
+Verror  = abs.(Vapprox .- Vtrue)
+gap     = maximum(Verror)
 
-p1 = plot(size = (1050, 780), grid = false, framestyle = :axes,
-          title = "Dispatch vs. the IEEE 1547 droop — $METHOD, four classes, three phases",
-          titlefontsize = 13,
-          xlabel = "Voltage (p.u.)", ylabel = "VAR Gen. (p.u.)",
-          xlims = (VBP[1], VBP[6]), ylims = (-1.15qmax, 1.15qmax),
-          xticks = 0.90:0.05:1.10, guidefontsize = 12, tickfontsize = 10,
-          legendfontsize = 9, legend = :outertop, legend_columns = 4,
-          foreground_color_legend = :black, background_color_legend = :white,
-          left_margin = 6Plots.mm, right_margin = 8Plots.mm, bottom_margin = 5Plots.mm)
 
-vspan!(p1, [VLIM[1], VLIM[2]], color = :lightblue, alpha = 0.30, lw = 0, label = false)
-vline!(p1, [VLIM[1], VLIM[2]], ls = :dash, lw = 1.5, color = :gray65, label = false)
-hline!(p1, [0.0], ls = :dash, lw = 1.5, color = :gray65, label = false)
 
-for ci in 1:ncls
-    qb = S_OVER_P * PV_CLASSES[ci][2] * 1e3 / SBASE
-    plot!(p1, VBP, QSHAPE .* qb, lw = 3, color = CLSCOL[ci], label = false)
-    scatter!(p1, VBP[2:5], (QSHAPE .* qb)[2:5], m = :circle, ms = 6,
-             mc = CLSCOL[ci], msc = CLSCOL[ci], label = false)
-    idx = [i for i in 1:npv if PV[i].cls == ci]
-    scatter!(p1, vec([V[PV[i].bus, PV[i].phase, t] for i in idx, t in 1:T]),
-             vec([Qdg_v[i, t] for i in idx, t in 1:T]),
-             m = :+, ms = 7, msw = 2.5, mc = CLSCOL[ci], msc = CLSCOL[ci], label = false)
+println()
+println("---------------- Voltage-model comparison ----------------")
+@printf("Displayed time          : %.2f h\n", (tcheck - 1) * 24 / T)
+@printf("LinDist3Flow range       : %.4f – %.4f p.u.\n",
+        minimum(Vapprox), maximum(Vapprox))
+@printf("Exact AC range           : %.4f – %.4f p.u.\n",
+        minimum(Vtrue), maximum(Vtrue))
+@printf("Maximum voltage error    : %.3e p.u.\n", gap)
+println("----------------------------------------------------------")
+
+
+if INTERACTIVE
+    println()
+    println("Tutorial complete.")
+    pause_tutorial("Press ENTER when you are finished viewing the plots and want to exit...")
+else
+    println("Press ENTER when you are finished viewing the plots and want to exit...")
+    readline()
 end
-
-# legend proxies, parked outside xlims so they appear only in the key
-for ci in 1:ncls
-    plot!(p1, [1.5, 1.6], [0.0, 0.0], lw = 2, color = CLSCOL[ci], m = :circle, ms = 5,
-          mc = CLSCOL[ci], msc = CLSCOL[ci], label = "$(PV_CLASSES[ci][1]) droop")
-end
-for ci in 1:ncls
-    scatter!(p1, [1.5], [0.0], m = :+, ms = 7, msw = 2,
-             mc = CLSCOL[ci], msc = CLSCOL[ci], label = "$(PV_CLASSES[ci][1]) Q")
-end
-vspan!(p1, [1.5, 1.6], color = :lightblue, alpha = 0.30, lw = 0,
-       label = "Feasible Operation Region")
-display(p1)
-savefig(p1, joinpath(@__DIR__, "droop_dispatch_3ph$FIGSUF.png"))
-
-p2 = plot(xlabel = "hour of day", ylabel = "voltage (p.u.)", xticks = 0:3:24, xlims = (0, 24),
-          title = "Feeder voltage envelope by phase")
-for (φ, c) in zip(PHASES, (:seagreen, :orangered, :dodgerblue))
-    plot!(p2, hours, [maximum(V[:, φ, t]) for t in 1:T], lw = 2, color = c, label = "phase $φ max")
-    plot!(p2, hours, [minimum(V[:, φ, t]) for t in 1:T], lw = 2, ls = :dash, color = c,
-          label = "phase $φ min")
-end
-hline!(p2, [VLIM[1], VLIM[2]], ls = :dot, lw = 1.5, color = :red, label = "limits")
-display(p2)
-savefig(p2, joinpath(@__DIR__, "voltage_envelope_3ph$FIGSUF.png"))
-
-p3 = plot(hours, [sum(Pavail[:, t]) * SBASE / 1e3 for t in 1:T], lw = 2, ls = :dash,
-          color = :grey45, label = "available",
-          xlabel = "hour of day", ylabel = "kW", xticks = 0:3:24, xlims = (0, 24),
-          title = "Fleet PV: available vs delivered")
-plot!(p3, hours, [sum(Pdg_v[:, t]) * SBASE / 1e3 for t in 1:T], lw = 2, color = :darkorange2,
-      fillrange = 0, fillalpha = 0.15, label = "delivered")
-display(p3)
-savefig(p3, joinpath(@__DIR__, "pv_dispatch_3ph$FIGSUF.png"))
-
-println("\nwrote droop_dispatch_3ph$FIGSUF.png, voltage_envelope_3ph$FIGSUF.png, " *
-        "pv_dispatch_3ph$FIGSUF.png")
