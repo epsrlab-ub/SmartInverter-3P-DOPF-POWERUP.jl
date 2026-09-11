@@ -164,7 +164,7 @@ function tp_envelope_figure(m = "lambda"; res = tpr, host = "LinDist3Flow")
     p
 end
 
-# The two hosts' voltage envelopes on one axis: same feeder, same dispatch problem, and
+# The voltage envelopes of the two hosts on one axis: same feeder, same dispatch problem, and
 # a visible offset that is entirely the network model's doing.
 function tp_host_envelope_figure(m = "lambda")
     p = plot(xlabel = "hour of day", ylabel = "voltage (p.u.)", xticks = 0:3:24,
