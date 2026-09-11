@@ -643,20 +643,6 @@ dev = maximum(abs(Qdg_v[i, t] - droop_q(V[PV[i].bus, PV[i].phase, t], PV[i].Smax
               for i in 1:npv, t in 1:T)
 @printf("\nmax |q_dispatch − q_curve| : %.3e p.u.   (exactness of the %s encoding)\n", dev, METHOD)
 
-# ---- verification 2: IVACOPF voltages vs an exact three-phase power flow ---------------
-#  Same backward/forward sweep used for the warm start, now re-run on the *solved*
-#  dispatch. This is the number that separates the two hosts: it asks whether the voltage
-#  the model told each inverter to read is the voltage it would really see.
-sweep(t) = (Vc = sweep_state(Pdg_v, Qdg_v, t)[1]; [abs(Vc[b][φ]) for b in 1:nb, φ in PHASES])
-
-tmax  = argmax([sum(Pdg_v[:, t]) for t in 1:T])            # busiest PV step
-Vtrue = sweep(tmax)
-gap   = maximum(abs.(V[:, :, tmax] .- Vtrue))
-@printf("IVACOPF vs exact AC at t=%d : max |Δv| = %.3e p.u.  (true range %.4f – %.4f)\n",
-        tmax, gap, minimum(Vtrue), maximum(Vtrue))
-dev_true = maximum(abs(Qdg_v[i, tmax] - droop_q(Vtrue[PV[i].bus, PV[i].phase], PV[i].Smax))
-                   for i in 1:npv)
-@printf("droop residual at the TRUE voltages : %.3e p.u.\n", dev_true)
 
 println("\npass-by-pass")
 println("  pass   solve (s)     objective       MAPB        MRPB         MVM")
@@ -677,6 +663,9 @@ if INTERACTIVE
 end
 
 # ==================================================================== 7) figures ========
+# Plots are opened as standalone GUI windows with `gui(...)`.
+# Nothing is saved to PNG. The final prompt keeps Julia alive so the
+# windows remain open until the participant is finished inspecting them.
 gr(size = (900, 520), legend = :topright, framestyle = :box, grid = true, gridalpha = 0.15,
    left_margin = 6Plots.mm, bottom_margin = 4Plots.mm)
 hours = range(0, 24 - 24 / T, length = T)
@@ -724,8 +713,11 @@ for ci in 1:ncls
 end
 vspan!(p1, [1.5, 1.6], color = :lightblue, alpha = 0.30, lw = 0,
        label = "Feasible Operation Region")
-display(p1)
-savefig(p1, joinpath(@__DIR__, "droop_dispatch_3ph$FIGSUF.png"))
+gui(p1)
+println("\nPress ENTER when you are finished viewing the plot.")
+
+readline()
+
 
 # --------------------------------------------------------------------- interactive result explorer
 if INTERACTIVE
@@ -772,8 +764,17 @@ if INTERACTIVE
         msw = 2,
         label = "Optimal dispatch",
     )
-    display(pclass)
-    savefig(pclass, joinpath(@__DIR__, "droop_selected_class_3ph$FIGSUF.png"))
+
+    gui(pclass)
+println("\nPress ENTER when you are finished viewing the plot.")
+
+readline()
+
+
+  
+
+
+
 
     pause_tutorial("Press ENTER to inspect one inverter and one hour...")
 
@@ -810,9 +811,7 @@ if INTERACTIVE
     @printf("Displayed time   : %.2f h\n", hours[tinspect])
     @printf("Voltage          : %.6f p.u.\n", vv)
     @printf("Reactive output  : %.6f p.u.\n", qq)
-    @printf("Droop prediction : %.6f p.u.\n", qcurve)
-    @printf("|q - q_curve|    : %.3e p.u.\n", abs(qq - qcurve))
-
+    
     pinspect = plot(
         VBP,
         QSHAPE .* g.Smax,
@@ -830,11 +829,16 @@ if INTERACTIVE
     vspan!(pinspect, [VLIM[1], VLIM[2]], alpha = 0.20, label = "Allowed voltage range")
     hline!(pinspect, [0.0], ls = :dash, label = false)
     scatter!(pinspect, [vv], [qq], ms = 9, marker = :circle, label = "Selected operating point")
-    display(pinspect)
-    savefig(pinspect, joinpath(@__DIR__, "droop_selected_point_3ph$FIGSUF.png"))
+    gui(pinspect)
+println("\nPress ENTER when you are finished viewing the plot.")
+
+readline()
+
+
 
     pause_tutorial("Press ENTER to display the feeder voltage envelope...")
 end
+
 
 p2 = plot(xlabel = "hour of day", ylabel = "voltage (p.u.)", xticks = 0:3:24, xlims = (0, 24),
           title = "Feeder voltage envelope by phase — IVACOPF")
@@ -844,8 +848,12 @@ for (φ, c) in zip(PHASES, (:seagreen, :orangered, :dodgerblue))
           label = "phase $φ min")
 end
 hline!(p2, [VLIM[1], VLIM[2]], ls = :dot, lw = 1.5, color = :red, label = "limits")
-display(p2)
-savefig(p2, joinpath(@__DIR__, "voltage_envelope_3ph$FIGSUF.png"))
+gui(p2)
+println("\nPress ENTER when you are finished viewing the plot.")
+
+readline()
+
+
 
 INTERACTIVE && pause_tutorial("Press ENTER to display available versus delivered PV power...")
 
@@ -855,13 +863,81 @@ p3 = plot(hours, [sum(Pavail[:, t]) * SBASE / 1e3 for t in 1:T], lw = 2, ls = :d
           title = "Fleet PV: available vs delivered — IVACOPF")
 plot!(p3, hours, [sum(Pdg_v[:, t]) * SBASE / 1e3 for t in 1:T], lw = 2, color = :darkorange2,
       fillrange = 0, fillalpha = 0.15, label = "delivered")
-display(p3)
-savefig(p3, joinpath(@__DIR__, "pv_dispatch_3ph$FIGSUF.png"))
+      gui(p3)
+      println("\nPress ENTER when you are finished viewing the plot.")
+      
+      readline()
+      
+# ---- interactive verification: IVACOPF vs exact three-phase power flow -----------------
 
-println("\nwrote droop_dispatch_3ph$FIGSUF.png, voltage_envelope_3ph$FIGSUF.png, " *
-        "pv_dispatch_3ph$FIGSUF.png")
 if INTERACTIVE
-    println("also wrote droop_selected_class_3ph$FIGSUF.png and droop_selected_point_3ph$FIGSUF.png")
+    println()
+    println("============================================================")
+    println(" IVACOPF ACCURACY CHECK")
+    println("============================================================")
+    println()
+    println("IVACOPF is solved using successive linearisation of the")
+    println("three-phase AC power-flow equations.")
+    println("We can compare its final voltage solution against an exact")
+    println("three-phase backward/forward sweep using the same optimized")
+    println("PV active- and reactive-power dispatch.")
+    println()
+
+    # Automatically identify the time of maximum fleet PV output
+    tmax_auto = argmax([sum(Pdg_v[:, t]) for t in 1:T])
+    hour_auto = (tmax_auto - 1) * 24 / T
+
+    @printf("The highest-PV operating point occurs at approximately %.2f h.\n", hour_auto)
+    println()
+    println("You may inspect that operating point or choose another hour.")
+
+    hour_check = ask_int(
+        "Choose an hour of day for the exact AC comparison",
+        clamp(round(Int, hour_auto), 0, 23);
+        allowed = 0:23,
+    )
+
+    tcheck = min(hour_check * T ÷ 24 + 1, T)
+
+else
+    # For unattended runs, retain the original behavior:
+    # validate at the time of maximum PV production.
+    tcheck = argmax([sum(Pdg_v[:, t]) for t in 1:T])
+end
+
+
+# Exact three-phase backward/forward sweep using the solved dispatch
+sweep(t) = begin
+    Vc = sweep_state(Pdg_v, Qdg_v, t)[1]
+    [abs(Vc[b][φ]) for b in 1:nb, φ in PHASES]
+end
+
+
+# Run exact three-phase backward/forward sweep
+Vtrue = sweep(tcheck)
+
+# Compare IVACOPF voltage magnitudes against exact AC voltages
+Vapprox = V[:, :, tcheck]
+Verror  = abs.(Vapprox .- Vtrue)
+gap     = maximum(Verror)
+
+
+println()
+println("---------------- Voltage-model comparison ----------------")
+@printf("Displayed time          : %.2f h\n", (tcheck - 1) * 24 / T)
+@printf("IVACOPF range            : %.4f – %.4f p.u.\n",
+        minimum(Vapprox), maximum(Vapprox))
+@printf("Exact AC range           : %.4f – %.4f p.u.\n",
+        minimum(Vtrue), maximum(Vtrue))
+@printf("Maximum voltage error    : %.3e p.u.\n", gap)
+println("----------------------------------------------------------")
+
+
+if INTERACTIVE
     println()
     println("Tutorial complete.")
+    pause_tutorial("Press ENTER when you are finished viewing the plots and want to exit...")
+else
+    println("Press ENTER when you are finished viewing the plots and want to exit...")
+    readline()
 end
