@@ -609,12 +609,7 @@ q_i^G &= \sum_{b=1}^{6}\lambda_{i,b}\, q^{\text{bp}}_{i,b}\\
 to remove the integer variables from the two formulations above, on a
 current-voltage DOPF host of the same family used here; see also Chapter 6 of [[9]](#ref-9).*
 
-Both previous methods spend integer variables to answer "which segment?". Integers are
-what make a model combinatorial: the count grows with inverters × time steps, and
-branch-and-bound has to search over them. On an unbalanced LV feeder that product is the
-whole problem, because the fleet is made of single-phase devices and there can be one at
-every service connection. The motivation in [[10]](#ref-10) is to get rid of the integers
-altogether, which also makes the model a candidate for real-time use.
+ The motivation in [[10]](#ref-10) is to get rid of the integers altogether.
 
 The observation is that an "if" is just an on/off switch, and the unit step *is* an
 on/off switch written as a function:
@@ -660,7 +655,7 @@ with the same slopes as before,
 (JuMP ≥ 1.15); they build the expression correctly outside a macro.
 
 No extra variables at all, just one algebraic expression per inverter per time step. The
-price is paid in solver behaviour. ``H(\cdot)`` is discontinuous, so the derivative is
+tradeoff is in solver behaviour. ``H(\cdot)`` is discontinuous, so the derivative is
 undefined at every breakpoint and the problem is non-convex. Two consequences follow: the
 model needs an NLP solver rather than an MILP one, and the non-smoothness is expensive to
 differentiate, which makes this the slowest of the three encodings on the case study and
