@@ -670,7 +670,7 @@ price is paid in solver behaviour. ``H(\cdot)`` is discontinuous, so the derivat
 undefined at every breakpoint and the problem is non-convex. Two consequences follow: the
 model needs an NLP solver rather than an MILP one, and the non-smoothness is expensive to
 differentiate, which makes this the slowest of the three encodings on the case study and
-the first to break down as the network grows. [Does it scale?](@ref) puts numbers on both.
+the first to break down as the network grows. [Scalability](@ref Scalability) puts numbers on both.
 
 ## The three-phase hosts
 
