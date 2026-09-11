@@ -3,67 +3,151 @@
 #  HOST   : IVACOPF, a three-phase current-voltage AC-OPF, linearised (Soltani, Khorsand
 #                      & Ma, IEEE OJIA 5, 2024, doi:10.1109/OJIA.2024.3367547), solved by
 #                      successive linearisation
-#  DROOP  : Big-M          (one binary per segment, exact product linearisation)
+#  DROOP  : Big-M (one binary per segment, exact product linearisation)
 #
 #  Test system : network_5_Feeder_2, a real 415/240 V LV feeder from the ENWL dataset,
 #                Kron-reduced to three wires. 194 buses, 193 lines, 489 m, and 18
-#                single-phase loads spread 4 / 5 / 9 across phases 1 / 2 / 3, so the
-#                network is genuinely unbalanced, which is the point of modelling it
-#                three-phase at all.
-#  Horizon     : 24 h at 15-minute resolution (96 steps), residential load shape,
-#                clear-sky irradiance.
+#                single-phase loads 
+#  Horizon     : 24 h at 15-minute resolution (96 steps), residential load shape.
 #  Objective   : minimise total PV curtailment over the day.
 #
-#  This is the IVACOPF counterpart of LinDist3Flow_BigM.jl. Same feeder, same fleet,
-#  same droop block; only the network model differs. Where LinDist3Flow drops losses and
-#  assumes near-balanced voltages, IVACOPF writes the network in rectangular current and
-#  voltage coordinates, where Ohm's law (35) and KCL (36) are *exactly* linear even
-#  with full 3×3 mutual coupling. Only two relations are nonlinear, the v·I power
-#  balance and the voltage magnitude, and both are isolated at the buses and handled by a
-#  Taylor expansion about the previous iterate. The loop repeats until the three error
-#  metrics MAPB / MRPB / MVM clear a tolerance, so what converges is measured against the
-#  *true* nonlinear relations rather than against the approximation.
-#
 #  Equation numbers in the comments below are the tutorial's:
-#  https://epsrlab-ub.github.io/SmartInverter-3P-DOPF.jl/dev/tutorial_voltvar/#Three-phase-IVACOPF:-the-near-exact-host
-#
-#  Run:   julia --project=. IVACOPF3Ph_BigM.jl
+#  https://epsrlab-ub.github.io/SmartInverter-3P-DOPF-POWERUP.jl/dev/tutorial_voltvar/#Three-phase-IVACOPF:-the-near-exact-host
+
 # =====================================================================================
 
-using JuMP, Gurobi                    # MILP solver (Gurobi is free for academic use)
+using JuMP, Gurobi                    
 using JSON3, Printf, Plots, LinearAlgebra
 
 const PHASES = 1:3
 const DATA   = joinpath(@__DIR__, "data")
 
-# ─────────────────────────────────────────────── configuration you may want to change ──
-const N_PV_PER_PHASE = parse(Int, get(ENV, "TP_NPV", "4"))          # PV sites per phase, placed at the electrically farthest load buses
-# Four inverter classes. Each phase receives one of each, so size is not confounded with
-# phase or with distance from the substation. Because q̄ = S_max, the four classes follow
-# four *different* droop curves: same breakpoint voltages, four saturation levels.
+# =====================================================================================
+# Interactive tutorial configuration
+# =====================================================================================
+# By default this script is interactive. For unattended runs, set TP_INTERACTIVE=0 and
+# use the existing environment variables (TP_NPV, TP_STEPS, TP_WARMSTART, TP_IMAXSEG).
+const INTERACTIVE = get(ENV, "TP_INTERACTIVE", "1") != "0"
+
+function ask_int(prompt::AbstractString, default::Int; allowed = nothing)
+    while true
+        print("$prompt [$default]: ")
+        s = strip(readline())
+        x = isempty(s) ? default : tryparse(Int, s)
+
+        if x === nothing
+            println("  Please enter an integer.")
+            continue
+        end
+
+        if allowed !== nothing && !(x in allowed)
+            println("  Choose one of: $(join(collect(allowed), ", "))")
+            continue
+        end
+
+        return x
+    end
+end
+
+function ask_yesno(prompt::AbstractString, default::Bool = true)
+    tag = default ? "Y/n" : "y/N"
+    while true
+        print("$prompt [$tag]: ")
+        s = lowercase(strip(readline()))
+        isempty(s) && return default
+        s in ("y", "yes") && return true
+        s in ("n", "no") && return false
+        println("  Please enter y or n.")
+    end
+end
+
+function pause_tutorial(message::AbstractString = "Press ENTER to continue...")
+    INTERACTIVE || return
+    println()
+    print(message)
+    readline()
+    println()
+end
+
+# Four inverter classes. Each phase receives one of each when N_PV_PER_PHASE = 4, so
+# size is not confounded with phase or distance from the substation. Because q̄ = S_max,
+# the four classes follow four different droop curves with common voltage breakpoints.
 const PV_CLASSES = (("A — 3 kW",  3.0),
                     ("B — 5 kW",  5.0),
                     ("C — 8 kW",  8.0),
                     ("D — 12 kW", 12.0))
-const S_OVER_P       = 1.1       # inverter oversizing: S_max = 1.1 * P_rated
-const VLIM           = (0.95, 1.05)              # bus voltage limits, p.u.,    eq. (41)
-const VBP            = [0.88, 0.90, 0.97, 1.00, 1.02, 1.10]   # IEEE 1547 breakpoints, p.u.
-const QSHAPE         = [1.0, 1.0, 0.0, 0.0, -1.0, -1.0]       # q / q̄ at each breakpoint
-const SBASE_KVA      = 100.0     # per-phase power base
+const S_OVER_P       = 1.1
+const VLIM           = (0.95, 1.05)
+const VBP            = [0.88, 0.90, 0.97, 1.00, 1.02, 1.10]
+const QSHAPE         = [1.0, 1.0, 0.0, 0.0, -1.0, -1.0]
+const SBASE_KVA      = 100.0
 const MIP_GAP        = 1e-3
-const METHOD         = "Big-M"             # droop encoding, for labels
-const FIGSUF         = "_iva_bigm"                 # suffix on the figure filenames
+const METHOD         = "Big-M"
+const FIGSUF         = "_iva_bigm"
 
-# ---- successive-linearisation controls (the part that is new relative to LinDist3Flow) --
-const MAX_ITER  = parse(Int,     get(ENV, "TP_MAXITER", "15"))
-const TOL       = parse(Float64, get(ENV, "TP_TOL", "1e-6"))    # on max(MAPB, MRPB, MVM)
-const WARMSTART = get(ENV, "TP_WARMSTART", "sweep") == "sweep"  # else flat 1∠0°,∓120°
-# Thermal line limit (42) is a *quadratic* constraint. Written as an IMAX_SEG-sided
-# polygon inscribing the circle it stays linear, so the model remains an MILP. On these
-# ENWL feeders the peak flow is a small fraction of the conductor rating, so it is left
-# off by default and reported instead; set IMAX_SEG > 0 (e.g. 8) to enforce it.
-const IMAX_SEG  = parse(Int, get(ENV, "TP_IMAXSEG", "0"))
-# ───────────────────────────────────────────────────────────────────────────────────────
+# Successive-linearisation controls.
+const MAX_ITER = parse(Int, get(ENV, "TP_MAXITER", "15"))
+const TOL      = parse(Float64, get(ENV, "TP_TOL", "1e-6"))
+
+# Defaults can still be overridden with environment variables.
+npv_default      = parse(Int, get(ENV, "TP_NPV", "4"))
+steps_default    = parse(Int, get(ENV, "TP_STEPS", "96"))
+warm_default     = get(ENV, "TP_WARMSTART", "sweep") == "sweep"
+imaxseg_default  = parse(Int, get(ENV, "TP_IMAXSEG", "0"))
+
+if INTERACTIVE
+    println()
+    println("============================================================")
+    println(" THREE-PHASE SMART-INVERTER OPF — INTERACTIVE TUTORIAL")
+    println("============================================================")
+    println()
+    println("Configure a three-phase distribution-system simulation with")
+    println("IEEE 1547 Volt-VAr control encoded using Big-M.")
+    println("Press ENTER at a prompt to accept the value shown in brackets.")
+    println()
+
+    global N_PV_PER_PHASE = ask_int(
+        "Number of PV inverters per phase",
+        npv_default in 1:4 ? npv_default : 4;
+        allowed = 1:4,
+    )
+
+    global T = ask_int(
+        "Number of time steps over 24 h",
+        steps_default in (24, 48, 96) ? steps_default : 96;
+        allowed = (24, 48, 96),
+    )
+
+    global WARMSTART = ask_yesno(
+        "Use exact three-phase power-flow warm start?",
+        warm_default,
+    )
+
+    thermal_default = imaxseg_default > 0
+    enforce_thermal = ask_yesno(
+        "Enforce thermal line-current limits?",
+        thermal_default,
+    )
+    global IMAX_SEG = enforce_thermal ? (imaxseg_default > 0 ? imaxseg_default : 8) : 0
+
+    println()
+    println("---------------- Selected configuration ----------------")
+    println("PV sites / phase : $N_PV_PER_PHASE")
+    println("Time steps       : $T")
+    println("Warm start       : $(WARMSTART ? "three-phase sweep" : "flat start")")
+    println("Thermal limits   : $(IMAX_SEG > 0 ? "enforced with $IMAX_SEG-sided polygon" : "reported only")")
+    println("--------------------------------------------------------")
+    pause_tutorial("Press ENTER to load the feeder and build the simulation...")
+else
+    N_PV_PER_PHASE = npv_default
+    T = steps_default
+    WARMSTART = warm_default
+    IMAX_SEG = imaxseg_default
+end
+
+T in (24, 48, 96) || error("TP_STEPS must be one of 24, 48, or 96 for the supplied 96-point profiles.")
+N_PV_PER_PHASE in 1:4 || error("TP_NPV must be between 1 and 4 for this tutorial.")
+# =====================================================================================
 
 # ============================================================== 1) read the BMOPF case ==
 # Feeder and horizon may be overridden from the environment, so the identical model can
@@ -85,8 +169,7 @@ ZBASE      = VBASE^2 / SBASE
 IBASE      = SBASE / VBASE                                       # A, per phase
 const VNOM = 1.0
 
-T      = parse(Int, get(ENV, "TP_STEPS", "96"))
-step   = max(1, 96 ÷ T)
+step   = 96 ÷ T
 Pmult  = collect(Float64, loadpr.P_percent)[1:step:end][1:T] ./ 100
 Qmult  = collect(Float64, loadpr.Q_percent)[1:step:end][1:T] ./ 100
 G      = collect(Float64, solar.G_percent)[1:step:end][1:T]  ./ 100
@@ -304,6 +387,22 @@ warm_seconds = @elapsed begin
 end
 WARMSTART && @printf("\nwarm start: %d exact sweeps in %.1f s\n", T, warm_seconds)
 
+if INTERACTIVE
+    println()
+    println("============================================================")
+    println(" SOLVING THE THREE-PHASE IVACOPF")
+    println("============================================================")
+    println()
+    println("Each successive-linearisation pass will:")
+    println("  1. build a linear approximation around the current state,")
+    println("  2. solve the resulting mixed-integer optimization problem,")
+    println("  3. update the voltage/current linearisation point, and")
+    println("  4. evaluate MAPB, MRPB, and MVM against the nonlinear relations.")
+    println()
+    @printf("Convergence requires max(MAPB, MRPB, MVM) < %.1e.\n", TOL)
+    pause_tutorial("Press ENTER to start the optimization...")
+end
+
 # ==================================================== 5) successive-linearisation loop ==
 # One Gurobi environment, reused by every pass: the licence banner is printed once and
 # each rebuild is cheaper than spinning up a fresh environment.
@@ -519,7 +618,8 @@ end
 converged || @warn "stopped at MAX_ITER = $MAX_ITER without clearing TOL = $TOL"
 
 # ==================================================================== 6) results ========
-kWh(x) = x * SBASE / 1e3 / 4                      # p.u. summed over 15-min steps → kWh
+Δt_hours = 24 / T
+kWh(x) = x * SBASE / 1e3 * Δt_hours              # p.u. summed over selected time steps → kWh
 E_avail = kWh(sum(Pavail))
 E_curt  = kWh(sum(PVC_v))
 
@@ -585,7 +685,21 @@ for r in iterlog
             r.iter, r.seconds, r.objective, r.MAPB, r.MRPB, r.MVM)
 end
 
+if INTERACTIVE
+    println()
+    println("============================================================")
+    println(" RESULT VISUALIZATION")
+    println("============================================================")
+    println()
+    println("The optimization is complete. The first figure overlays every")
+    println("optimized inverter dispatch point on its corresponding Volt-VAr curve.")
+    pause_tutorial("Press ENTER to display the full Volt-VAr dispatch plot...")
+end
+
 # ==================================================================== 7) figures ========
+# Plots are opened as standalone GUI windows with `gui(...)`.
+# Nothing is saved to PNG. The final prompt keeps Julia alive so the
+# windows remain open until the participant is finished inspecting them.
 gr(size = (900, 520), legend = :topright, framestyle = :box, grid = true, gridalpha = 0.15,
    left_margin = 6Plots.mm, bottom_margin = 4Plots.mm)
 hours = range(0, 24 - 24 / T, length = T)
@@ -633,8 +747,132 @@ for ci in 1:ncls
 end
 vspan!(p1, [1.5, 1.6], color = :lightblue, alpha = 0.30, lw = 0,
        label = "Feasible Operation Region")
-display(p1)
-savefig(p1, joinpath(@__DIR__, "droop_dispatch_3ph$FIGSUF.png"))
+gui(p1)
+println("\nPress ENTER when you are finished viewing the plot.")
+
+readline()
+
+
+# --------------------------------------------------------------------- interactive result explorer
+if INTERACTIVE
+    pause_tutorial("Press ENTER to explore one inverter class...")
+
+    class_options = sort(unique(g.cls for g in PV))
+    println("Available inverter classes in this simulation:")
+    for (menu_idx, ci) in enumerate(class_options)
+        nsites = count(g -> g.cls == ci, PV)
+        println("  $menu_idx. $(PV_CLASSES[ci][1])  ($nsites sites)")
+    end
+
+    class_choice = ask_int(
+        "Select an inverter class",
+        1;
+        allowed = 1:length(class_options),
+    )
+    ci = class_options[class_choice]
+    idx = [i for i in 1:npv if PV[i].cls == ci]
+    qb = S_OVER_P * PV_CLASSES[ci][2] * 1e3 / SBASE
+
+    pclass = plot(
+        VBP,
+        QSHAPE .* qb,
+        lw = 3,
+        label = "$(PV_CLASSES[ci][1]) Volt-VAr curve",
+        xlabel = "Voltage at inverter terminal (p.u.)",
+        ylabel = "VAr output (p.u.)",
+        title = "Dispatch of $(PV_CLASSES[ci][1]) inverters",
+        xlims = (VBP[1], VBP[6]),
+        ylims = (-1.15 * qb, 1.15 * qb),
+        grid = false,
+        framestyle = :axes,
+        legend = :topright,
+    )
+    vspan!(pclass, [VLIM[1], VLIM[2]], alpha = 0.20, label = "Allowed voltage range")
+    hline!(pclass, [0.0], ls = :dash, label = false)
+    scatter!(
+        pclass,
+        vec([V[PV[i].bus, PV[i].phase, t] for i in idx, t in 1:T]),
+        vec([Qdg_v[i, t] for i in idx, t in 1:T]),
+        marker = :+,
+        ms = 8,
+        msw = 2,
+        label = "Optimal dispatch",
+    )
+
+    gui(pclass)
+println("\nPress ENTER when you are finished viewing the plot.")
+
+readline()
+
+
+  
+
+
+
+
+    pause_tutorial("Press ENTER to inspect one inverter and one hour...")
+
+    println("Inverters in $(PV_CLASSES[ci][1]):")
+    for (menu_idx, i) in enumerate(idx)
+        g = PV[i]
+        @printf("  %d. bus %-6s  phase %d\n", menu_idx, BUSES[g.bus], g.phase)
+    end
+
+    inv_choice = ask_int(
+        "Select an inverter",
+        1;
+        allowed = 1:length(idx),
+    )
+    i = idx[inv_choice]
+    g = PV[i]
+
+    hour = ask_int(
+        "Choose an hour of day to inspect",
+        12;
+        allowed = 0:23,
+    )
+    tinspect = min(hour * T ÷ 24 + 1, T)
+    vv = V[g.bus, g.phase, tinspect]
+    qq = Qdg_v[i, tinspect]
+    qcurve = droop_q(vv, g.Smax)
+
+    println()
+    println("Selected operating point")
+    println("------------------------")
+    @printf("Bus              : %s\n", BUSES[g.bus])
+    @printf("Phase            : %d\n", g.phase)
+    @printf("Inverter class   : %s\n", PV_CLASSES[g.cls][1])
+    @printf("Displayed time   : %.2f h\n", hours[tinspect])
+    @printf("Voltage          : %.6f p.u.\n", vv)
+    @printf("Reactive output  : %.6f p.u.\n", qq)
+    
+    pinspect = plot(
+        VBP,
+        QSHAPE .* g.Smax,
+        lw = 3,
+        xlabel = "Voltage at inverter terminal (p.u.)",
+        ylabel = "VAr output (p.u.)",
+        title = "$(PV_CLASSES[g.cls][1]) — bus $(BUSES[g.bus]), phase $(g.phase), $(round(hours[tinspect]; digits=2)) h",
+        label = "Volt-VAr curve",
+        xlims = (VBP[1], VBP[6]),
+        ylims = (-1.15 * g.Smax, 1.15 * g.Smax),
+        grid = false,
+        framestyle = :axes,
+        legend = :topright,
+    )
+    vspan!(pinspect, [VLIM[1], VLIM[2]], alpha = 0.20, label = "Allowed voltage range")
+    hline!(pinspect, [0.0], ls = :dash, label = false)
+    scatter!(pinspect, [vv], [qq], ms = 9, marker = :circle, label = "Selected operating point")
+    gui(pinspect)
+println("\nPress ENTER when you are finished viewing the plot.")
+
+readline()
+
+
+
+    pause_tutorial("Press ENTER to display the feeder voltage envelope...")
+end
+
 
 p2 = plot(xlabel = "hour of day", ylabel = "voltage (p.u.)", xticks = 0:3:24, xlims = (0, 24),
           title = "Feeder voltage envelope by phase — IVACOPF")
@@ -644,8 +882,14 @@ for (φ, c) in zip(PHASES, (:seagreen, :orangered, :dodgerblue))
           label = "phase $φ min")
 end
 hline!(p2, [VLIM[1], VLIM[2]], ls = :dot, lw = 1.5, color = :red, label = "limits")
-display(p2)
-savefig(p2, joinpath(@__DIR__, "voltage_envelope_3ph$FIGSUF.png"))
+gui(p2)
+println("\nPress ENTER when you are finished viewing the plot.")
+
+readline()
+
+
+
+INTERACTIVE && pause_tutorial("Press ENTER to display available versus delivered PV power...")
 
 p3 = plot(hours, [sum(Pavail[:, t]) * SBASE / 1e3 for t in 1:T], lw = 2, ls = :dash,
           color = :grey45, label = "available",
@@ -653,8 +897,83 @@ p3 = plot(hours, [sum(Pavail[:, t]) * SBASE / 1e3 for t in 1:T], lw = 2, ls = :d
           title = "Fleet PV: available vs delivered — IVACOPF")
 plot!(p3, hours, [sum(Pdg_v[:, t]) * SBASE / 1e3 for t in 1:T], lw = 2, color = :darkorange2,
       fillrange = 0, fillalpha = 0.15, label = "delivered")
-display(p3)
-savefig(p3, joinpath(@__DIR__, "pv_dispatch_3ph$FIGSUF.png"))
+      gui(p3)
+      println("\nPress ENTER when you are finished viewing the plot.")
+      
+      readline()
+      
+# ---- interactive verification: IVACOPF vs exact three-phase power flow -----------------
 
-println("\nwrote droop_dispatch_3ph$FIGSUF.png, voltage_envelope_3ph$FIGSUF.png, " *
-        "pv_dispatch_3ph$FIGSUF.png")
+if INTERACTIVE
+    println()
+    println("============================================================")
+    println(" IVACOPF ACCURACY CHECK")
+    println("============================================================")
+    println()
+    println("IVACOPF is solved using successive linearisation of the")
+    println("three-phase AC power-flow equations.")
+    println("We can compare its final voltage solution against an exact")
+    println("three-phase backward/forward sweep using the same optimized")
+    println("PV active- and reactive-power dispatch.")
+    println()
+
+    # Automatically identify the time of maximum fleet PV output
+    tmax_auto = argmax([sum(Pdg_v[:, t]) for t in 1:T])
+    hour_auto = (tmax_auto - 1) * 24 / T
+
+    @printf("The highest-PV operating point occurs at approximately %.2f h.\n", hour_auto)
+    println()
+    println("You may inspect that operating point or choose another hour.")
+
+    hour_check = ask_int(
+        "Choose an hour of day for the exact AC comparison",
+        clamp(round(Int, hour_auto), 0, 23);
+        allowed = 0:23,
+    )
+
+    tcheck = min(hour_check * T ÷ 24 + 1, T)
+
+else
+    # For unattended runs, retain the original behavior:
+    # validate at the time of maximum PV production.
+    tcheck = argmax([sum(Pdg_v[:, t]) for t in 1:T])
+end
+
+
+# Exact three-phase backward/forward sweep using the solved dispatch
+sweep(t) = begin
+    Vc = sweep_state(Pdg_v, Qdg_v, t)[1]
+    [abs(Vc[b][φ]) for b in 1:nb, φ in PHASES]
+end
+
+
+# Run exact three-phase backward/forward sweep
+Vtrue = sweep(tcheck)
+
+# Compare IVACOPF voltage magnitudes against exact AC voltages
+Vapprox = V[:, :, tcheck]
+Verror  = abs.(Vapprox .- Vtrue)
+gap     = maximum(Verror)
+
+
+println()
+println("---------------- Voltage-model comparison ----------------")
+@printf("Displayed time          : %.2f h\n", (tcheck - 1) * 24 / T)
+@printf("IVACOPF range            : %.4f – %.4f p.u.\n",
+        minimum(Vapprox), maximum(Vapprox))
+@printf("Exact AC range           : %.4f – %.4f p.u.\n",
+        minimum(Vtrue), maximum(Vtrue))
+@printf("Maximum voltage error    : %.3e p.u.\n", gap)
+println("----------------------------------------------------------")
+
+
+
+
+if INTERACTIVE
+    println()
+    println("Tutorial complete.")
+    pause_tutorial("Press ENTER when you are finished viewing the plots and want to exit...")
+else
+    println("Press ENTER when you are finished viewing the plots and want to exit...")
+    readline()
+end
