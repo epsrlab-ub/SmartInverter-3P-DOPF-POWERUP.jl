@@ -375,19 +375,19 @@ throughout; on the case study ``T = 96``, a full day at 15-minute resolution.
 *Following Savasci, Inaolaji and Paudyal [[5]](#ref-5), where this formulation was introduced for
 a second-order-cone DOPF; also Chapter 4 of Inaolaji's dissertation [[9]](#ref-9).*
 
-**The idea in one sentence.** Give every segment its own on/off switch, and write
+Give every segment its own on/off switch, and write
 constraints that are *switched off*, made trivially true, whenever their segment is
 not the active one.
 
 That switching-off is what "big-M" means. Take any constraint you want to enforce only
 when a binary ``\delta`` equals 1, and add ``M(1-\delta)`` to its right-hand side. If
-``\delta = 1`` the added term vanishes and the constraint bites. If ``\delta = 0`` the
+``\delta = 1`` the added term vanishes and the constraint binds. If ``\delta = 0`` the
 right-hand side becomes so large that the constraint cannot possibly be violated; it is
 still *present* in the model, but it no longer restricts anything. One constant, ``M``,
 buys you an if-statement.
 
-Everything below is written per inverter ``i \in \mathcal{G}``, and the voltage it reasons
-about is the one its own phase at its own bus, ``v_i = v_{b(i)}^{\varphi(i)}``. A fleet of
+Everything below is written per inverter ``i \in \mathcal{G}``, and the voltage 
+is its own phase at its own bus, ``v_i = v_{b(i)}^{\varphi(i)}``. A fleet of
 twelve single-phase inverters spread over three phases therefore carries twelve
 independent copies of this system at every time step.
 
@@ -401,8 +401,7 @@ the five segments of inverter ``i`` and require
 
 **Step 2: each switch owns a voltage window.** If segment ``b`` is the active one, then
 the sensed voltage must lie in that segment's range ``[V^{\text{bp}}_{b},
-V^{\text{bp}}_{b+1}]``. Written once with the phase visible, so there is no doubt which
-voltage is meant,
+V^{\text{bp}}_{b+1}]``. 
 
 ```math
 V^{\text{bp}}_{b} - M(1-\delta_{i,b}) \;\le\; v_{b(i)}^{\varphi(i)}
@@ -444,9 +443,7 @@ q_i^G \;=\; \delta_{i,1}\,\bar q_i
 ```
 
 with slopes ``\alpha_{i,1} = -\bar q_i/(V^{\text{bp}}_3-V^{\text{bp}}_2)`` and
-``\alpha_{i,2} = -\bar q_i/(V^{\text{bp}}_5-V^{\text{bp}}_4)``. Both are inverter-specific,
-because ``\bar q_i`` is: on the case study below the fleet carries four size classes, so
-four different pairs of slopes appear in one model.
+``\alpha_{i,2} = -\bar q_i/(V^{\text{bp}}_5-V^{\text{bp}}_4)``. Both are inverter-specific.
 
 This is a correct statement of the curve: exactly one ``\delta_{i,b}`` equals 1, so exactly
 one bracket survives and ``q_i^G`` takes that segment's value. But it is **not linear**.
@@ -462,8 +459,8 @@ else in the expression is a variable times a constant. So the whole difficulty o
 Big-M formulation reduces to these two products, and if they can be removed the model
 becomes a plain MILP.
 
-**Step 4: remove the two products, exactly.** The saving grace is that ``\delta_{i,b}`` is
-binary rather than merely continuous, and ``v_i`` is bounded. Under those two conditions
+**Step 4: remove the two products, exactly.** Note that``\delta_{i,b}`` is
+binary rather, and ``v_i`` is bounded. Under those two conditions
 each product can be replaced by a new continuous variable ``W_{i,b} := \delta_{i,b} v_i``
 and four linear inequalities, with **no approximation whatsoever**:
 
@@ -478,8 +475,8 @@ forces ``W_{i,b} = v_i`` and the right pair confines ``v_i`` to the segment. If
 while the left pair goes slack. Either way ``W_{i,b}`` equals ``\delta_{i,b} v_i`` exactly:
 this is a reformulation, not a relaxation.
 
-Only segments 2 and 4 need this treatment, and for those the ``W_{i,b}`` bounds already pin
-``v_i`` into the segment, so their Step-2 window rows are replaced rather than added to.
+Only segments 2 and 4 need this modification, and for those the ``W_{i,b}`` bounds already pin
+``v_i`` into the segment, so their Step-2 window rows are replaced.
 The complete constraint system for the Big-M droop is therefore:
 
 ```math
@@ -510,9 +507,6 @@ q_i^G = \delta_{i,1}\bar q_i
 \qquad \forall i \in \mathcal{G} \tag{7}
 ```
 
-Compare it with the Step 3 version: the two bracketed sloped terms have simply been split
-into a ``W`` term and a ``\delta`` term. That substitution is the entire content of the
-Big-M droop model.
 
 
 !!! tip "Choose M as tightly as you can justify"
